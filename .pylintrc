@@ -1,0 +1,16 @@
+[MESSAGES CONTROL]
+
+disable = bad-continuation, missing-docstring, unspecified-encoding
+enable = useless-suppression
+
+[DESIGN]
+
+max-args = 7
+max-attributes = 12
+max-locals = 18
+min-public-methods = 1
+
+[BASIC]
+
+# Variable names which should always be accepted
+good-names = i, fh, x, y, z

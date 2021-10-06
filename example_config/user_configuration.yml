@@ -1,0 +1,63 @@
+coordinate_system:
+  # How much the z axis is extended visually relative to x and y axes:
+  vertical_exaggeration: 10
+  # All other distance vectors defined directly in the
+  # configuration file is relative to this origin:
+  origin: [436137, 6470283, 0]  
+  
+
+visual_settings:
+  # Resolution of final movie:
+  resolution:
+    width: 1920
+    height: 1080
+  # Font wanted for text annotations:
+  font: https://eds-static.equinor.com/font/Equinor-Regular.woff
+  movie_duration: 10  # Duration of output movie in seconds
+  fps: 25  # Frames per second in output movie
+  camera_track_point: [2570, 1400, -920]  # Location in 3D which camera should point to (relative to origin)
+  # The path parametrized as {t: [x, y, z]} which the camera should traverse through the movie
+  camera_path:
+    1993: [278, -44833, 5050]
+    1995: [147, -86609, -2051]
+    2000: [7963, 3936, -618]
+    2003: [2855, 9983, -616]
+    2006: [-8182, 1980, -619]
+    2013: [92872, -2550, -234]
+
+wells:
+  # Injection well:
+  - name: Well A
+    trajectory: ./data/well_a_trajectory.csv
+    color: [0.0, 0, 0]
+  # Production wells:
+  - name: Well B
+    trajectory: ./data/well_b_trajectory.csv
+    color: [0.4, 0.4, 0.4]  # color specified as RGB, each component between 0 and 1.
+    alpha: 0.1  # transparency (0: fully transparent, 1: non-transparent)
+  - name: Well C
+    trajectory: ./data/well_c_trajectory.csv
+    color: [0.4, 0.4, 0.4]
+    alpha: 0.1
+
+text_annotations:
+  - label: "800 - 1000 m: Some formation"
+    location: [-8900, -10010, -930]
+    rotation: [90, 0, 0]
+  - label: "2300 - 2600 m: Some other formation"
+    location: [-8900, -10010, -2480]
+    rotation: [90, 0, 0]
+
+boundary_boxes:
+  - name: reservoir
+    xrange: [-10000, 10000]
+    yrange: [-10000, 10000]
+    zrange: [-3000, -80]
+    color: [0.3, 0.3, 0.3]
+    alpha: 0.1
+  - name: water
+    xrange: [-10000, 10000]
+    yrange: [-10000, 10000]
+    zrange: [-80, 0]
+    color: [0.1, 0.1, 0.7]
+    alpha: 0.5
