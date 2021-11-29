@@ -24,6 +24,8 @@ visual_settings:
     2003: [2855, 9983, -616]
     2006: [-8182, 1980, -619]
     2013: [92872, -2550, -234]
+    2016: [92872, -2550, -234]
+    2022: [92872, -2550, -234]
 
 wells:
   # Injection well:
@@ -61,3 +63,6 @@ boundary_boxes:
     zrange: [-80, 0]
     color: [0.1, 0.1, 0.7]
     alpha: 0.5
+
+production_data:
+  file: /private/omah/Documents/CLCS/Slepiner_Movie/Data/Mass_CO2_Cum.xlsx
