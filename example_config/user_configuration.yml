@@ -24,6 +24,10 @@ visual_settings:
     2003: [2855, 9983, -616]
     2006: [-8182, 1980, -619]
     2013: [92872, -2550, -234]
+    2016: [92872, -2550, -234]
+    2022: [92872, -2550, -234]
+  
+  survey_years: [1999,2001,2002,2004,2006,2008,2010,2013,2016,2020] 
 
 wells:
   # Injection well:
@@ -65,3 +69,6 @@ boundary_boxes:
 surveys: {}
 static_horizons: {}
 time_dependent_horizons: {}
+production_data:
+  file: /private/omah/Documents/CLCS/Slepiner_Movie/Data/Mass_CO2_Cum.xlsx
+  logo: /private/omah/Documents/CLCS/Slepiner_Movie/Data/logo_equinor.png
