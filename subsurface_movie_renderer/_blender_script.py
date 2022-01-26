@@ -8,6 +8,9 @@ import sys
 import json
 import math
 from typing import List, Tuple
+from pathlib import Path
+
+import numpy as np
 
 # Blender specific packages which are available only in Blender shipped Python:
 import bpy  # pylint: disable=import-error
@@ -141,6 +144,319 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
         bpy.data.objects[object_name].data.materials.append(well_mat)
 
 
+###################################
+
+# def define_surface_colorscale():
+materials = []
+
+for i, color in enumerate(json.loads(Path("colorscale.json").read_text())):
+    materials.append(bpy.data.materials.new("mat_val" + str(i)))
+    materials[-1].emit = 0.4
+    materials[-1].use_transparency = True
+    materials[-1].diffuse_color = Color(color[:3])
+
+    if i < 10:
+        materials[-1].alpha = i / 10.0
+    else:
+        materials[-1].alpha = 1.0
+
+len_mat = len(materials)
+
+
+class Horizon:
+    def __init__(self, X, Y, Z, horizon_name, alpha=1.0):
+        self._X = X
+        self._Y = Y
+        self._Z = Z
+        self._horizon_name = horizon_name
+        self._alpha = alpha
+
+        # Todo: Put the above in same fle (as with TDH).
+        # Todo: super()
+
+        self._top_ty_materials = []
+        for i in range(len_mat):
+            R = 1 - 1.0 * i / len_mat
+            G = 1 - 1.0 * i / len_mat
+            B = 1 - 1.0 * i / len_mat
+
+            self._top_ty_materials.append(
+                bpy.data.materials.new("top_ty_mat_val" + str(i))
+            )
+            self._top_ty_materials[-1].emit = 0.4
+            self._top_ty_materials[-1].use_transparency = True
+            self._top_ty_materials[-1].diffuse_color = Color((R, G, B))
+
+            self._top_ty_materials[-1].alpha = self._alpha
+
+    def update_blender(self):
+
+        X = self._X
+        Y = self._Y
+        Z = self._Z
+
+        min_z = np.nanmin(np.nanmin(Z))
+        max_z = np.nanmax(np.nanmax(Z))
+
+        AMP = 100.0 * (Z - min_z) / (max_z - min_z)
+        AMP[np.isnan(AMP)] = 0
+
+        Z *= -1.0
+
+        # ALL CODE BELOW IS ~REUSED. =>> CONSOLIDATE
+
+        [M, N] = np.shape(Z)
+
+        vertex2index = (
+            np.zeros((M + 1) * (N + 1)) * np.nan
+        )  # convert vertex location to an index used by Blender
+        current_index = -1
+        verts = []
+        faces = []
+        values = []
+
+        for i in range(M):
+            for j in range(N):
+                if AMP[i, j] > 0:
+                    if np.isnan(vertex2index[(N + 1) * i + j]):  # top left vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * i + j] = current_index
+                        x_loc = (X[i, j] - 12.5 / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] + 12.5 / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(vertex2index[(N + 1) * i + 1 + j]):  # top right vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * i + 1 + j] = current_index
+                        x_loc = (X[i, j] + 12.5 / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] + 12.5 / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(
+                        vertex2index[(N + 1) * (i + 1) + j]
+                    ):  # bottom left vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * (i + 1) + j] = current_index
+                        x_loc = (X[i, j] - 12.5 / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] - 12.5 / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(
+                        vertex2index[(N + 1) * (i + 1) + 1 + j]
+                    ):  # bottom right vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * (i + 1) + 1 + j] = current_index
+                        x_loc = (X[i, j] + 12.5 / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] - 12.5 / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+
+                        verts.append((x_loc, y_loc, z_loc))
+
+                    faces.append(
+                        (
+                            vertex2index[(N + 1) * i + j],
+                            vertex2index[(N + 1) * i + 1 + j],
+                            vertex2index[(N + 1) * (i + 1) + 1 + j],
+                            vertex2index[(N + 1) * (i + 1) + j],
+                        )
+                    )
+
+                    values.append(int(AMP[i, j]))
+
+        try:
+            bpy.data.objects[self._horizon_name].select = True
+            bpy.ops.object.delete()
+            bpy.data.objects[self._horizon_name].select = False
+        except KeyError:
+            pass
+
+        mesh = bpy.data.meshes.new(self._horizon_name)
+        new_object = bpy.data.objects.new(self._horizon_name, mesh)
+        new_object.location = bpy.context.scene.cursor_location
+        bpy.context.scene.objects.link(new_object)
+        mesh.from_pydata(verts, [], faces)
+        mesh.update(calc_edges=True)
+
+        bpy.context.scene.objects.active = bpy.data.objects[self._horizon_name]
+
+        for i in range(len(materials)):
+            bpy.ops.object.material_slot_add()
+            bpy.data.objects[self._horizon_name].material_slots[
+                i
+            ].material = self._top_ty_materials[i]
+
+        obj = bpy.context.object
+
+        counter = 0
+        for polygon in obj.data.polygons:
+            polygon.select = True
+            polygon.material_index = values[counter]
+            counter += 1
+
+        obj.data.update()
+        bpy.ops.object.mode_set(mode="OBJECT")  # Return to object mode
+
+        bpy.data.objects[self._horizon_name].select = True
+        bpy.ops.object.shade_smooth()
+        bpy.data.objects[self._horizon_name].select = False
+
+
+class TimeDependentHorizon:
+    def __init__(self, horizon_name: str, depth: float):
+        self._horizon_name = horizon_name
+        self._depth = depth
+
+        self._survey_times = json.loads(
+            Path(self._horizon_name + "_metadata.json").read_text()
+        )
+
+        self._currently_loaded_file = None
+
+    def _load_file(self, time):
+        def _get_file_index(time):
+            for i, survey_time in enumerate(self._survey_times[1:]):
+                if time < survey_time:
+                    return i
+            return len(self._survey_times) - 2
+
+        file_index = _get_file_index(time)
+        file_to_load = self._horizon_name + "_" + str(file_index) + ".npz"
+
+        if self._currently_loaded_file != file_to_load:
+            data = np.load(file_to_load)
+            self._currently_loaded_file = file_to_load
+
+            self._AMP1 = data["AMP1"]
+            self._AMP2 = data["AMP2"]
+
+            self.X = data["X"]
+            self.Y = data["Y"]
+
+            self._time_a, self._time_b = tuple(
+                self._survey_times[file_index : file_index + 2]
+            )
+
+            self._AT = self._time_a + (self._time_b - self._time_a) * data["AT"] / 100.0
+
+    def _get_values(self, time):
+        self._load_file(time)
+
+        if time <= self._time_a:
+            AMP = self._AMP1
+        elif time >= self._time_b:
+            AMP = self._AMP2
+        else:
+            interp_scale = (time - self._AT) / (0.01 + self._time_b - self._AT)
+            AMP = (1 - interp_scale) * self._AMP1 + interp_scale * self._AMP2
+            AMP[interp_scale < 0] = 0
+
+        return self.X, self.Y, AMP
+
+    def update_blender(self, time):
+
+        X, Y, AMP = self._get_values(time)
+
+        Z = AMP * (12.5 / 100) - self._depth  # TODO
+
+        [M, N] = np.shape(Z)
+
+        vertex2index = (
+            np.zeros((M + 1) * (N + 1)) * np.nan
+        )  # convert vertex location to an index used by Blender
+        current_index = -1
+        verts = []
+        faces = []
+        values = []
+
+        samplingint = 50
+
+        for i in range(M):
+            for j in range(N):
+                if AMP[i, j] > 0:
+                    if np.isnan(vertex2index[(N + 1) * i + j]):  # top left vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * i + j] = current_index
+                        x_loc = (X[i, j] - samplingint / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] + samplingint / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(vertex2index[(N + 1) * i + 1 + j]):  # top right vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * i + 1 + j] = current_index
+                        x_loc = (X[i, j] + samplingint / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] + samplingint / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(
+                        vertex2index[(N + 1) * (i + 1) + j]
+                    ):  # bottom left vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * (i + 1) + j] = current_index
+                        x_loc = (X[i, j] - samplingint / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] - samplingint / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+                        verts.append((x_loc, y_loc, z_loc))
+                    if np.isnan(
+                        vertex2index[(N + 1) * (i + 1) + 1 + j]
+                    ):  # bottom right vertex
+                        current_index += 1
+                        vertex2index[(N + 1) * (i + 1) + 1 + j] = current_index
+                        x_loc = (X[i, j] + samplingint / 2 - origin[0]) * SCALE_X
+                        y_loc = (Y[i, j] - samplingint / 2 - origin[1]) * SCALE_Y
+                        z_loc = (Z[i, j] - origin[2]) * SCALE_Z
+
+                        verts.append((x_loc, y_loc, z_loc))
+
+                    faces.append(
+                        (
+                            vertex2index[(N + 1) * i + j],
+                            vertex2index[(N + 1) * i + 1 + j],
+                            vertex2index[(N + 1) * (i + 1) + 1 + j],
+                            vertex2index[(N + 1) * (i + 1) + j],
+                        )
+                    )
+
+                    values.append(int(AMP[i, j]))
+
+        try:
+            bpy.data.objects[self._horizon_name].select = True
+            bpy.ops.object.delete()
+            bpy.data.objects[self._horizon_name].select = False
+        except KeyError:
+            pass
+
+        mesh = bpy.data.meshes.new(self._horizon_name)
+        new_object = bpy.data.objects.new(self._horizon_name, mesh)
+        new_object.location = bpy.context.scene.cursor_location
+        bpy.context.scene.objects.link(new_object)
+        mesh.from_pydata(verts, [], faces)
+        mesh.update(calc_edges=True)
+
+        bpy.context.scene.objects.active = bpy.data.objects[self._horizon_name]
+
+        for i in range(len(materials)):
+            bpy.ops.object.material_slot_add()
+            bpy.data.objects[self._horizon_name].material_slots[i].material = materials[
+                i
+            ]
+
+        obj = bpy.context.object
+
+        counter = 0
+        for polygon in obj.data.polygons:
+            polygon.select = True
+            polygon.material_index = values[counter]
+            counter += 1
+
+        obj.data.update()
+        bpy.ops.object.mode_set(mode="OBJECT")  # Return to object mode
+
+        bpy.data.objects[self._horizon_name].select = True
+        bpy.ops.object.shade_smooth()
+        bpy.data.objects[self._horizon_name].select = False
+
+
+#########################
 def _add_camera_tracking(pos: Tuple[int, int, int]) -> None:
     empty = bpy.data.objects.new("Empty", None)
     empty.location = Vector((pos[0] * SCALE_X, pos[1] * SCALE_Y, pos[2] * SCALE_Z))
@@ -153,7 +469,13 @@ def _add_camera_tracking(pos: Tuple[int, int, int]) -> None:
     track_to.up_axis = "UP_Y"
 
 
-def _render_frames(width: int, height: int) -> None:
+def _render_frames(
+    width: int,
+    height: int,
+    static_horizons: List[Horizon],
+    td_horizons: List[TimeDependentHorizon] = None,
+) -> None:
+
     scene_key = bpy.data.scenes.keys()[0]
     scene = bpy.data.scenes[scene_key]
 
@@ -166,12 +488,23 @@ def _render_frames(width: int, height: int) -> None:
     lamp = bpy.data.objects["Lamp"]
     lamp.data.energy = 0.0
 
+    if static_horizons is not None:
+        for static_horizon in static_horizons:
+            static_horizon.update_blender()
+
     with open("camera_coordinates.csv") as csvfile:
         for i, txyz in enumerate(csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC)):
-            x, y, z = txyz[1:]
+
+            t, x, y, z = txyz
+
+            if td_horizons is not None:
+                for td_horizon in td_horizons:
+                    td_horizon.update_blender(t)
+
             x *= SCALE_X  # type: ignore[operator]
             y *= SCALE_Y  # type: ignore[operator]
             z *= SCALE_Z  # type: ignore[operator]
+
             camera.location.xyz = lamp.location.xyz = Vector((x, y, z))
 
             scene_key = bpy.data.scenes.keys()[0]
@@ -186,6 +519,8 @@ if __name__ == "__main__":
 
     user_configuration = json.loads(sys.argv[-1])
 
+    origin = user_configuration["coordinate_system"]["origin"]
+
     # Delete default blender provided cube and lamp:
     bpy.data.objects["Cube"].select = True
     bpy.ops.object.delete()
@@ -196,13 +531,32 @@ if __name__ == "__main__":
     SCALE_Z *= user_configuration["coordinate_system"]["vertical_exaggeration"]
 
     _set_world_parameters()
-    _add_wells(
-        user_configuration["coordinate_system"]["origin"], user_configuration["wells"]
-    )
+    _add_wells(origin, user_configuration["wells"])
     _add_text_annotations(user_configuration["text_annotations"])
     _add_boundaries(user_configuration["boundary_boxes"])
+
+    static_horizons = []
+    for horizon, horizon_settings in user_configuration["static_horizons"].items():
+        X = np.load(horizon_settings["X"])
+        Y = np.load(horizon_settings["Y"])
+        Z = np.load(horizon_settings["Z"])
+        static_horizons.append(
+            Horizon(X, Y, Z, horizon, alpha=horizon_settings["alpha"])
+        )
+
+    td_horizons = [
+        TimeDependentHorizon(horizon, horizon_settings["depth"])
+        for horizon, horizon_settings in user_configuration[
+            "time_dependent_horizons"
+        ].items()
+    ]
 
     _add_camera_tracking(user_configuration["visual_settings"]["camera_track_point"])
 
     resolution = user_configuration["visual_settings"]["resolution"]
-    _render_frames(width=resolution["width"], height=resolution["height"])
+    _render_frames(
+        width=resolution["width"],
+        height=resolution["height"],
+        static_horizons=static_horizons,
+        td_horizons=td_horizons,
+    )

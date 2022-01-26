@@ -4,6 +4,7 @@ import pathlib
 
 from ._parse_config import parse_config
 from ._render_movie import render_movie
+from ._ow2numpy import process_file
 
 
 def _check_nonpython_dependencies() -> None:
@@ -22,7 +23,7 @@ def _check_nonpython_dependencies() -> None:
         )
 
 
-def main() -> None:
+def main_renderer() -> None:
 
     parser = argparse.ArgumentParser(prog=("Render movie with subsurface data"))
     parser.add_argument(
@@ -49,3 +50,34 @@ def main() -> None:
     )
 
     render_movie(output_path=output_path, configuration=configuration)
+
+
+def main_ow2np() -> None:
+
+    parser = argparse.ArgumentParser(prog=("Convert OpenWorks data to numpy format"))
+    parser.add_argument(
+        "openworks_exported_file",
+        type=pathlib.Path,
+        help="Path to OpenWorks exported file",
+    )
+    parser.add_argument(
+        "output_folder",
+        type=pathlib.Path,
+        metavar="OUTPUT_FOLDER",
+        help="Output folder for regularized numpy data",
+    )
+
+    parser.add_argument(
+        "--samplingint",
+        type=float,
+        default=12.5,
+        help="Sampling interval/distance in regularized output grid",
+    )
+
+    args = parser.parse_args()
+
+    process_file(
+        input_file=args.openworks_exported_file,
+        output_folder=args.output_folder,
+        samplingint=args.samplingint,
+    )

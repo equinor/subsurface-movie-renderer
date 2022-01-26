@@ -3,11 +3,14 @@ import json
 import pathlib
 import tempfile
 import subprocess
+from typing import List, Tuple
 
 import tqdm
 import requests
 import numpy as np
 from scipy.interpolate import UnivariateSpline, interp1d
+
+from ._estimate_arrival_times import estimate_arrival_times
 
 
 def _create_camera_coordinates(
@@ -43,6 +46,15 @@ def _create_camera_coordinates(
     return n_frames
 
 
+def create_colormap_json(colormap: str) -> List[Tuple[float, float, float, float]]:
+    # Workaround since matplitlib can not be accessed from the Blender python binary.
+    import matplotlib
+
+    cmap = matplotlib.cm.get_cmap(colormap)
+
+    return [cmap(val) for val in np.linspace(0, 1, 101)]
+
+
 def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
 
     movie_duration = configuration["visual_settings"]["movie_duration"]
@@ -50,6 +62,17 @@ def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
 
     with tempfile.TemporaryDirectory(dir=".", prefix=".tmp") as tmp_dir:
         tmp_dir_path = pathlib.Path(tmp_dir)
+
+        for horizon, horizon_settings in configuration[
+            "time_dependent_horizons"
+        ].items():
+            estimate_arrival_times(
+                data_folder=horizon_settings["data_folder"],
+                horizon=horizon,
+                start_time=horizon_settings["start_time"],
+                surveys_metadata=configuration["surveys"],
+                tmp_dir_path=tmp_dir_path,
+            )
 
         n_frames = _create_camera_coordinates(
             camera_path=configuration["visual_settings"]["camera_path"],
@@ -60,6 +83,10 @@ def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
 
         (tmp_dir_path / "font.woff").write_bytes(
             requests.get(configuration["visual_settings"]["font"]).content
+        )
+
+        (tmp_dir_path / "colorscale.json").write_text(
+            json.dumps(create_colormap_json("viridis"))
         )
 
         with subprocess.Popen(
