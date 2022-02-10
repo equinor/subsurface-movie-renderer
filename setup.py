@@ -18,11 +18,15 @@ setup(
     packages=find_packages(exclude=["tests"]),
     entry_points={
         "console_scripts": [
-            "subsurface_movie_renderer=subsurface_movie_renderer.command_line:main"
+            "subsurface_movie_renderer=subsurface_movie_renderer.command_line:main_renderer",
+            "ow2np=subsurface_movie_renderer.command_line:main_ow2np",
         ],
     },
     install_requires=[
-        "numpy",
+        "cvxopt",
+        "matplotlib",
+        "networkx",
+        "numpy~=1.10",  # blender==2.79 ships with numpy==1.10.1
         "pyyaml>=5.1",
         "requests>=2.20",
         "scipy",
