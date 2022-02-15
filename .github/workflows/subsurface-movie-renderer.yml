@@ -2,11 +2,11 @@ name: subsurface-movie-renderer
 
 on:
   push:
-  #  branches:
-  #    - master
+    branches:
+      - main
   pull_request:
     branches:
-      - master
+      - main
   release:
     types:
       - published
@@ -34,7 +34,8 @@ jobs:
 
       - name: Install non-python dependencies
         run: |
-          sudo apt-get install ffmpeg libglu1-mesa
+          sudo apt-get update
+          sudo apt-get install ffmpeg libglu1-mesa 
           wget -q https://ftp.nluug.nl/pub/graphics/blender/release/Blender2.79/blender-2.79-linux-glibc219-x86_64.tar.bz2
           tar xjf blender*.tar.bz2
           echo "$PWD/blender-2.79-linux-glibc219-x86_64" >> $GITHUB_PATH         
@@ -51,9 +52,9 @@ jobs:
 
       - name: 🕵️ Check code style & linting
         run: |
-          black --check subsurface_movie_renderer setup.py
-          pylint subsurface_movie_renderer setup.py
-          mypy --package subsurface_movie_renderer --ignore-missing-imports --disallow-untyped-defs --show-error-codes
+          #black --check subsurface_movie_renderer setup.py
+          #pylint subsurface_movie_renderer setup.py
+          #mypy --package subsurface_movie_renderer --ignore-missing-imports --disallow-untyped-defs --show-error-codes
 
       - name: 🤖 Run tests
         run: subsurface_movie_renderer example_config/user_configuration.yml
