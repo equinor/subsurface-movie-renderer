@@ -14,8 +14,8 @@ def grid_cell_index(input_amp_maps):
     """
 
     amp_maps = []
-    for i in range(len(input_amp_maps)):
-        amp_maps.append(np.copy(input_amp_maps[i]))
+    for input_amp_map in input_amp_maps:
+        amp_maps.append(np.copy(input_amp_map))
 
     for amp_map in amp_maps:
         amp_map[amp_map <= 0] = 0
@@ -35,9 +35,6 @@ def grid_cell_index(input_amp_maps):
 
     # Add new grid cells if they they are going back to a previous value.
     for k in range(S - 1)[1:]:
-
-        new_values = np.zeros((M, N))
-
         prev = amp_maps[k - 1]
         amp_map = amp_maps[k]
         for i in range(M):

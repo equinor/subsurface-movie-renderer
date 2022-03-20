@@ -48,7 +48,7 @@ def _create_camera_coordinates(
 
 def create_colormap_json(colormap: str) -> List[Tuple[float, float, float, float]]:
     # Workaround since matplitlib can not be accessed from the Blender python binary.
-    import matplotlib
+    import matplotlib  # pylint: disable=import-outside-toplevel
 
     cmap = matplotlib.cm.get_cmap(colormap)
 

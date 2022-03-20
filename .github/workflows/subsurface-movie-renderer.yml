@@ -52,9 +52,9 @@ jobs:
 
       - name: 🕵️ Check code style & linting
         run: |
-          #black --check subsurface_movie_renderer setup.py
-          #pylint subsurface_movie_renderer setup.py
-          #mypy --package subsurface_movie_renderer --ignore-missing-imports --disallow-untyped-defs --show-error-codes
+          black --check subsurface_movie_renderer setup.py
+          pylint subsurface_movie_renderer setup.py
+          mypy --package subsurface_movie_renderer
 
       - name: 🤖 Run tests
         run: subsurface_movie_renderer example_config/user_configuration.yml

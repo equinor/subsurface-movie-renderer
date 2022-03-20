@@ -1,10 +1,11 @@
 import datetime
 import pathlib
+from typing import Union
 
 import yaml
 
 
-def dt2yearfraction(date_object):
+def dt2yearfraction(date_object: datetime.datetime) -> float:
     start_of_year = datetime.date(date_object.year, 1, 1).toordinal()
     end_of_year = datetime.date(date_object.year + 1, 1, 1).toordinal()
 
@@ -14,9 +15,12 @@ def dt2yearfraction(date_object):
 
 
 def parse_config(yaml_file: pathlib.Path) -> dict:
-    def absolute_path(path: str) -> str:
-        if pathlib.Path(path).is_absolute():
-            return path
+    def absolute_path(path: Union[pathlib.Path, str]) -> str:
+        if isinstance(path, str):
+            path = pathlib.Path(path)
+
+        if path.is_absolute():
+            return str(path)
         return str((yaml_file.parent / path).resolve().absolute())
 
     configuration = yaml.safe_load(yaml_file.read_text())
@@ -32,11 +36,11 @@ def parse_config(yaml_file: pathlib.Path) -> dict:
 
     for survey in configuration["surveys"].values():
         survey["time"] = dt2yearfraction(survey["time"])
-    
+
     for horizon_settings in configuration["time_dependent_horizons"].values():
-            horizon_settings["start_time"] = dt2yearfraction(horizon_settings["start_time"])
-    
+        horizon_settings["start_time"] = dt2yearfraction(horizon_settings["start_time"])
+
     for horizon_settings in configuration["time_dependent_horizons"].values():
         horizon_settings["data_folder"] = absolute_path(horizon_settings["data_folder"])
-    
+
     return configuration

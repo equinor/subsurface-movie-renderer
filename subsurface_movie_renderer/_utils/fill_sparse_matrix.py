@@ -1,9 +1,7 @@
 import numpy as np
-from cvxopt import matrix, spmatrix
-import networkx as nx
 
 
-def return_paths(DAG, start_node):
+def return_paths(dag, start_node):
 
     queue = []
     path = []
@@ -17,9 +15,9 @@ def return_paths(DAG, start_node):
     still_continue = True
 
     while still_continue:
-        successors = list(DAG.successors(node))
+        successors = list(dag.successors(node))
 
-        if successors != []:
+        if successors:
             if level > len(queue):
                 queue.append(successors)
                 node = successors[0]
@@ -29,7 +27,7 @@ def return_paths(DAG, start_node):
             path.append(int(node))
             level = level + 1
 
-        if successors == []:
+        if not successors:
             paths.append(path)
 
             while len(queue) > 0 and len(queue[-1]) < 2:
@@ -41,9 +39,9 @@ def return_paths(DAG, start_node):
             level = 1
 
             maxchoices = 0
-            for i in range(len(queue)):
-                if len(queue[i]) >= maxchoices:
-                    maxchoices = len(queue[i])
+            for queue_element in queue:
+                if len(queue_element) >= maxchoices:
+                    maxchoices = len(queue_element)
 
             if maxchoices == 0:
                 still_continue = False
@@ -53,11 +51,14 @@ def return_paths(DAG, start_node):
     return paths
 
 
+# TODO: Remove these disables
+# pylint: disable=too-many-arguments, too-many-locals, too-many-nested-blocks
+# pylint: disable=too-many-branches, too-many-statements, unused-argument
 def fill_sparse_matrix(
     N_v,
     equation_index,
     partial_S1,
-    DAG,
+    dag,
     topology_changes_singleindex,
     topology_change_recordings,
     boundary_points,
@@ -93,7 +94,7 @@ def fill_sparse_matrix(
 
     for i in range(M):
         for j in range(N):
-            if partial_S1[i, j] == 1 and list(DAG.predecessors(i * N + j)) == []:
+            if partial_S1[i, j] == 1 and not list(dag.predecessors(i * N + j)):
                 if topology_changes_singleindex.count(i * N + j) > 0:
                     topology_change_source = True
                     topology_change_recordings.append(
@@ -102,7 +103,7 @@ def fill_sparse_matrix(
                 else:
                     topology_change_source = False
 
-                paths = return_paths(DAG, i * N + j)
+                paths = return_paths(dag, i * N + j)
 
                 boundary_points[i, j] = 1
 
@@ -159,9 +160,9 @@ def fill_sparse_matrix(
                         new_LB = gamma_L * t_star / total_length
                         new_UB = gamma_U * t_star / total_length
 
-                    for index in range(len(path)):
-                        pos_i = path[index] // N
-                        pos_j = path[index] % N
+                    for path_element in path:
+                        pos_i = path_element // N
+                        pos_j = path_element % N
 
                         if topology_change_source:
                             topology_change_recordings[-1][2].add(
