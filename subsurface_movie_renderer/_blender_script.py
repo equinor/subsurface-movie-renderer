@@ -16,6 +16,9 @@ import numpy as np
 import bpy  # pylint: disable=import-error
 from mathutils import Vector, Color  # pylint: disable=import-error
 
+# TODO: Remove these disables
+# pylint: disable=redefined-outer-name, too-many-locals, too-many-statements
+
 
 def _set_world_parameters() -> None:
     world = bpy.data.worlds["World"]
@@ -91,7 +94,7 @@ def _add_boundaries(boundary_boxes: List[dict]) -> None:
 
             import random  # pylint: disable=import-outside-toplevel
 
-            # TODO: Make this variation deterministic  # pylint: disable=fixme
+            # TODO: Make this variation deterministic
             material.alpha = random.uniform(
                 max(0, box["alpha"] - 0.1), min(1, box["alpha"] + 0.1)
             )
@@ -146,50 +149,59 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
 
 ###################################
 
-# def define_surface_colorscale():
-materials = []
 
-for i, color in enumerate(json.loads(Path("colorscale.json").read_text())):
-    materials.append(bpy.data.materials.new("mat_val" + str(i)))
-    materials[-1].emit = 0.4
-    materials[-1].use_transparency = True
-    materials[-1].diffuse_color = Color(color[:3])
+def define_surface_colorscale(colorscale: List[List[float]]) -> List:
+    materials = []
 
-    if i < 10:
-        materials[-1].alpha = i / 10.0
-    else:
-        materials[-1].alpha = 1.0
+    for i, color in enumerate(colorscale):
+        materials.append(bpy.data.materials.new("mat_val" + str(i)))
+        materials[-1].emit = 0.4
+        materials[-1].use_transparency = True
+        materials[-1].diffuse_color = Color(color[:3])
 
-len_mat = len(materials)
+        if i < 10:
+            materials[-1].alpha = i / 10.0
+        else:
+            materials[-1].alpha = 1.0
+
+    return materials
 
 
 class Horizon:
-    def __init__(self, X, Y, Z, horizon_name, alpha=1.0):
+    def __init__(
+        self,
+        X: np.array,
+        Y: np.array,
+        Z: np.array,
+        horizon_name: str,
+        alpha: float = 1.0,
+    ):
         self._X = X
         self._Y = Y
         self._Z = Z
         self._horizon_name = horizon_name
         self._alpha = alpha
 
-        # Todo: Put the above in same fle (as with TDH).
-        # Todo: super()
+        # TODO: Put the above in same fle (as with TDH).
+        # TODO: super()
 
         self._top_ty_materials = []
-        for i in range(len_mat):
-            R = 1 - 1.0 * i / len_mat
-            G = 1 - 1.0 * i / len_mat
-            B = 1 - 1.0 * i / len_mat
+        n_materials = len(materials)
+        for i in range(n_materials):
+            red = 1 - 1.0 * i / n_materials
+            green = 1 - 1.0 * i / n_materials
+            blue = 1 - 1.0 * i / n_materials
 
             self._top_ty_materials.append(
                 bpy.data.materials.new("top_ty_mat_val" + str(i))
             )
             self._top_ty_materials[-1].emit = 0.4
             self._top_ty_materials[-1].use_transparency = True
-            self._top_ty_materials[-1].diffuse_color = Color((R, G, B))
+            self._top_ty_materials[-1].diffuse_color = Color((red, green, blue))
 
             self._top_ty_materials[-1].alpha = self._alpha
 
-    def update_blender(self):
+    def update_blender(self) -> None:
 
         X = self._X
         Y = self._Y
@@ -198,8 +210,8 @@ class Horizon:
         min_z = np.nanmin(np.nanmin(Z))
         max_z = np.nanmax(np.nanmax(Z))
 
-        AMP = 100.0 * (Z - min_z) / (max_z - min_z)
-        AMP[np.isnan(AMP)] = 0
+        amp = 100.0 * (Z - min_z) / (max_z - min_z)
+        amp[np.isnan(amp)] = 0
 
         Z *= -1.0
 
@@ -217,7 +229,7 @@ class Horizon:
 
         for i in range(M):
             for j in range(N):
-                if AMP[i, j] > 0:
+                if amp[i, j] > 0:
                     if np.isnan(vertex2index[(N + 1) * i + j]):  # top left vertex
                         current_index += 1
                         vertex2index[(N + 1) * i + j] = current_index
@@ -261,7 +273,7 @@ class Horizon:
                         )
                     )
 
-                    values.append(int(AMP[i, j]))
+                    values.append(int(amp[i, j]))
 
         try:
             bpy.data.objects[self._horizon_name].select = True
@@ -312,8 +324,8 @@ class TimeDependentHorizon:
 
         self._currently_loaded_file = None
 
-    def _load_file(self, time):
-        def _get_file_index(time):
+    def _load_file(self, time: float) -> None:
+        def _get_file_index(time: float) -> int:
             for i, survey_time in enumerate(self._survey_times[1:]):
                 if time < survey_time:
                     return i
@@ -326,8 +338,8 @@ class TimeDependentHorizon:
             data = np.load(file_to_load)
             self._currently_loaded_file = file_to_load
 
-            self._AMP1 = data["AMP1"]
-            self._AMP2 = data["AMP2"]
+            self._amp1 = data["amp1"]
+            self._amp2 = data["amp2"]
 
             self.X = data["X"]
             self.Y = data["Y"]
@@ -338,25 +350,25 @@ class TimeDependentHorizon:
 
             self._AT = self._time_a + (self._time_b - self._time_a) * data["AT"] / 100.0
 
-    def _get_values(self, time):
+    def _get_values(self, time: float) -> Tuple[np.array, np.array, np.array]:
         self._load_file(time)
 
         if time <= self._time_a:
-            AMP = self._AMP1
+            amp = self._amp1
         elif time >= self._time_b:
-            AMP = self._AMP2
+            amp = self._amp2
         else:
             interp_scale = (time - self._AT) / (0.01 + self._time_b - self._AT)
-            AMP = (1 - interp_scale) * self._AMP1 + interp_scale * self._AMP2
-            AMP[interp_scale < 0] = 0
+            amp = (1 - interp_scale) * self._amp1 + interp_scale * self._amp2
+            amp[interp_scale < 0] = 0
 
-        return self.X, self.Y, AMP
+        return self.X, self.Y, amp
 
-    def update_blender(self, time):
+    def update_blender(self, time: float) -> None:
 
-        X, Y, AMP = self._get_values(time)
+        X, Y, amp = self._get_values(time)
 
-        Z = AMP * (12.5 / 100) - self._depth  # TODO
+        Z = amp * (12.5 / 100) - self._depth  # TODO
 
         [M, N] = np.shape(Z)
 
@@ -372,7 +384,7 @@ class TimeDependentHorizon:
 
         for i in range(M):
             for j in range(N):
-                if AMP[i, j] > 0:
+                if amp[i, j] > 0:
                     if np.isnan(vertex2index[(N + 1) * i + j]):  # top left vertex
                         current_index += 1
                         vertex2index[(N + 1) * i + j] = current_index
@@ -416,7 +428,7 @@ class TimeDependentHorizon:
                         )
                     )
 
-                    values.append(int(AMP[i, j]))
+                    values.append(int(amp[i, j]))
 
         try:
             bpy.data.objects[self._horizon_name].select = True
@@ -434,11 +446,9 @@ class TimeDependentHorizon:
 
         bpy.context.scene.objects.active = bpy.data.objects[self._horizon_name]
 
-        for i in range(len(materials)):
+        for i, material in enumerate(materials):
             bpy.ops.object.material_slot_add()
-            bpy.data.objects[self._horizon_name].material_slots[i].material = materials[
-                i
-            ]
+            bpy.data.objects[self._horizon_name].material_slots[i].material = material
 
         obj = bpy.context.object
 
@@ -456,7 +466,19 @@ class TimeDependentHorizon:
         bpy.data.objects[self._horizon_name].select = False
 
 
-#########################
+def _configure_static_horizons(static_horizons_config: dict) -> list:
+    static_horizons = []
+    for horizon, horizon_settings in static_horizons_config.items():
+        X = np.load(horizon_settings["X"])
+        Y = np.load(horizon_settings["Y"])
+        Z = np.load(horizon_settings["Z"])
+        static_horizons.append(
+            Horizon(X, Y, Z, horizon, alpha=horizon_settings["alpha"])
+        )
+
+    return static_horizons
+
+
 def _add_camera_tracking(pos: Tuple[int, int, int]) -> None:
     empty = bpy.data.objects.new("Empty", None)
     empty.location = Vector((pos[0] * SCALE_X, pos[1] * SCALE_Y, pos[2] * SCALE_Z))
@@ -499,7 +521,7 @@ def _render_frames(
 
             if td_horizons is not None:
                 for td_horizon in td_horizons:
-                    td_horizon.update_blender(t)
+                    td_horizon.update_blender(t)  # type: ignore[arg-type]
 
             x *= SCALE_X  # type: ignore[operator]
             y *= SCALE_Y  # type: ignore[operator]
@@ -521,6 +543,10 @@ if __name__ == "__main__":
 
     origin = user_configuration["coordinate_system"]["origin"]
 
+    materials = define_surface_colorscale(
+        json.loads(Path("colorscale.json").read_text())
+    )
+
     # Delete default blender provided cube and lamp:
     bpy.data.objects["Cube"].select = True
     bpy.ops.object.delete()
@@ -535,15 +561,6 @@ if __name__ == "__main__":
     _add_text_annotations(user_configuration["text_annotations"])
     _add_boundaries(user_configuration["boundary_boxes"])
 
-    static_horizons = []
-    for horizon, horizon_settings in user_configuration["static_horizons"].items():
-        X = np.load(horizon_settings["X"])
-        Y = np.load(horizon_settings["Y"])
-        Z = np.load(horizon_settings["Z"])
-        static_horizons.append(
-            Horizon(X, Y, Z, horizon, alpha=horizon_settings["alpha"])
-        )
-
     td_horizons = [
         TimeDependentHorizon(horizon, horizon_settings["depth"])
         for horizon, horizon_settings in user_configuration[
@@ -554,9 +571,12 @@ if __name__ == "__main__":
     _add_camera_tracking(user_configuration["visual_settings"]["camera_track_point"])
 
     resolution = user_configuration["visual_settings"]["resolution"]
+
     _render_frames(
         width=resolution["width"],
         height=resolution["height"],
-        static_horizons=static_horizons,
+        static_horizons=_configure_static_horizons(
+            user_configuration["static_horizons"]
+        ),
         td_horizons=td_horizons,
     )

@@ -2,7 +2,8 @@ import numpy as np
 
 from .distance_to_edge import distance_to_edge
 
-
+# TODO: Remove these disables
+# pylint: disable=too-many-branches
 def find_topology_changes(S1, S2, dx, dy):
 
     [M, N] = np.shape(S1)

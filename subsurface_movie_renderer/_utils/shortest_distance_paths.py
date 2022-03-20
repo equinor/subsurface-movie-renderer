@@ -1,19 +1,22 @@
-import numpy as np
 from operator import itemgetter
 
+import numpy as np
 import networkx as nx
 
+# TODO: Remove these disables
+# pylint: disable=too-many-nested-blocks, too-many-branches, too-many-statements,
+# pylint: disable=too-many-arguments, too-many-locals
 
-def directed_path_exists(DAG, startnode, endnode):
+
+def directed_path_exists(dag, startnode, endnode):
     """
     Returns true if there exists a directed path from startnode to endnode.
     False otherwise.
     """
     try:
-        if nx.bidirectional_dijkstra(DAG, startnode, endnode):
-            return True
-        else:
-            return False
+        return nx.bidirectional_dijkstra(dag, startnode, endnode)
+    # TODO: Remove disable
+    # pylint: disable=bare-except
     except:
         return False
 
@@ -26,13 +29,14 @@ def addneighbours(
             dx = grid spacing in the x direction (i.e. the direction with N cells)
             dy = grid spacing in the x direction (i.e. the direction with M cells)
 
-    OUTPUT:	MxN matrix, where each cell contains the shortest distance from that particular cell to a cell with value 0.
+    OUTPUT:	MxN matrix, where each cell contains the shortest distance from that
+    particular cell to a cell with value 0.
     """
     # S     #N    #W    #E    #SW   #SE   #NW   #NE
     ivals = [i - 1, i + 1, i, i, i - 1, i - 1, i + 1, i + 1]
     jvals = [j, j, j - 1, j + 1, j - 1, j + 1, j - 1, j + 1]
 
-    for k in range(len(ivals)):
+    for k, _ in enumerate(ivals):
         append = True
 
         if (
@@ -67,7 +71,8 @@ def shortest_distance_paths(
             dx = grid spacing in the x direction (i.e. the direction with N cells)
             dy = grid spacing in the x direction (i.e. the direction with M cells)
 
-    OUTPUT:	MxN matrix, where each cell contains the shortest distance from that particular cell to a cell with value 0.
+    OUTPUT:	MxN matrix, where each cell contains the shortest distance from that
+    particular cell to a cell with value 0.
     """
 
     [M, N] = np.shape(S1)
@@ -141,9 +146,9 @@ def shortest_distance_paths(
 
         print("Calculating optimal paths:" + str(len(queue)) + 10 * " ", end="\r")
 
-    DAG = nx.DiGraph()
+    dag = nx.DiGraph()
 
-    DAG.add_nodes_from(range(M * N))
+    dag.add_nodes_from(range(M * N))
 
     already_reached = np.zeros((M, N), dtype=int)
 
@@ -153,7 +158,7 @@ def shortest_distance_paths(
                 parent_index = parent_y[i, j] * N + parent_x[i, j]
                 child_index = i * N + j
                 already_reached[i, j] = 1
-                DAG.add_edge(int(parent_index), int(child_index))
+                dag.add_edge(int(parent_index), int(child_index))
 
     #########################
     # CALCULATE "HELP" MAPS #
@@ -225,8 +230,11 @@ def shortest_distance_paths(
                 and np.min(np.min(parent_penalty[i - 1 : i + 2, j - 1 : j + 2]))
                 < np.inf
             ):
-                for index in range(9):
-                    [delta_i, delta_j] = np.unravel_index(
+                for _ in range(9):
+                    [  # pylint: disable=unbalanced-tuple-unpacking
+                        delta_i,
+                        delta_j,
+                    ] = np.unravel_index(
                         np.argmin(parent_penalty[i - 1 : i + 2, j - 1 : j + 2]), (3, 3)
                     )
 
@@ -237,7 +245,7 @@ def shortest_distance_paths(
                         continue
 
                     if directed_path_exists(
-                        DAG, childi * N + childj, i * N + j
+                        dag, childi * N + childj, i * N + j
                     ):  # Check if directed path exists in opposite direction.
                         parent_penalty[childi, childj] = np.inf
                         continue
@@ -281,11 +289,11 @@ def shortest_distance_paths(
             parent_index = i * N + j
             child_index = childi * N + childj
 
-            if directed_path_exists(DAG, child_index, parent_index):
+            if directed_path_exists(dag, child_index, parent_index):
                 continue
 
             without_children[i, j] = 0
-            DAG.add_edge(int(parent_index), int(child_index))
+            dag.add_edge(int(parent_index), int(child_index))
             additional_edges.append((i, j, childi, childj))
 
             source[i, j] = source[childi, childj]
@@ -315,8 +323,11 @@ def shortest_distance_paths(
                         )
                         < np.inf
                     ):
-                        for index in range(9):
-                            [delta_i2, delta_j2] = np.unravel_index(
+                        for _ in range(9):
+                            [  # pylint: disable=unbalanced-tuple-unpacking
+                                delta_i2,
+                                delta_j2,
+                            ] = np.unravel_index(
                                 np.argmin(
                                     parent_penalty[
                                         i + delta_i - 1 : i + delta_i + 2,
@@ -332,7 +343,7 @@ def shortest_distance_paths(
                                 continue
 
                             if directed_path_exists(
-                                DAG,
+                                dag,
                                 childi * N + childj,
                                 (i + delta_i) * N + j + delta_j,
                             ):
@@ -416,8 +427,11 @@ def shortest_distance_paths(
                             )
                             < np.inf
                         ):
-                            for index in range(9):
-                                [delta_i2, delta_j2] = np.unravel_index(
+                            for _ in range(9):
+                                [  # pylint: disable=unbalanced-tuple-unpacking
+                                    delta_i2,
+                                    delta_j2,
+                                ] = np.unravel_index(
                                     np.argmin(
                                         parent_penalty[
                                             pos_i + delta_i - 1 : pos_i + delta_i + 2,
@@ -430,7 +444,7 @@ def shortest_distance_paths(
                                 childj = pos_j + delta_j + delta_j2 - 1
 
                                 if directed_path_exists(
-                                    DAG,
+                                    dag,
                                     childi * N + childj,
                                     (pos_i + delta_i) * N + pos_j + delta_j,
                                 ):
@@ -496,8 +510,8 @@ def shortest_distance_paths(
             end="\r",
         )
 
-    if not nx.is_directed_acyclic_graph(DAG):
-        raise RuntimeError("The graph is not a DAG!")
+    if not nx.is_directed_acyclic_graph(dag):
+        raise RuntimeError("The graph is not a dag!")
 
     print("Finished calculating shortest distance paths...")
-    return DAG, source, parent_x, parent_y, additional_edges
+    return dag, source, parent_x, parent_y, additional_edges

@@ -1,12 +1,10 @@
 import os
 import json
 import pickle
-from pathlib import Path
 
 from cvxopt import matrix, solvers, spmatrix, sparse
-import networkx as nx
 import numpy as np
-from scipy.sparse import identity, lil_matrix  # sparse matrix library
+from scipy.sparse import lil_matrix  # sparse matrix library
 from scipy.sparse.linalg import spsolve  # sparse matrix solver
 
 from ._utils.distance_to_edge import distance_to_edge  #
@@ -16,6 +14,8 @@ from ._utils.find_topology_changes import find_topology_changes
 from ._utils.fill_sparse_matrix import fill_sparse_matrix
 
 
+# TODO: Remove this disable
+# pylint: disable=too-many-locals, too-many-branches, too-many-statements
 def estimate_arrival_times(
     data_folder, horizon, start_time, surveys_metadata, tmp_dir_path
 ):
@@ -131,7 +131,8 @@ def estimate_arrival_times(
 
         topology_changes = find_topology_changes(S1, S2, dx, dy)
 
-        # Insert the calculated "feeding points" by changing the value of S1 in that particular cell:
+        # Insert the calculated "feeding points" by changing
+        # the value of S1 in that particular cell:
         topology_changes_singleindex = []
         for index in topology_changes:
             topology_changes_singleindex.append(index[0] * N + index[1])
@@ -164,7 +165,7 @@ def estimate_arrival_times(
             distance=distance,
         )
 
-        [DAG, source, parent_x, parent_y, additional_edges] = shortest_distance_paths(
+        [dag, _, _, _, _] = shortest_distance_paths(
             partial_S1,
             partial_S2,
             S1,
@@ -177,12 +178,11 @@ def estimate_arrival_times(
             True,
         )  # parent map
 
-        FILE = open(
-            tmp_dir_path / f"DAG_{horizon}_{surveys[k + 1]}_{surveys[k]}.dat",
+        with open(
+            tmp_dir_path / f"dag_{horizon}_{surveys[k + 1]}_{surveys[k]}.dat",
             "wb",
-        )
-        pickle.dump(DAG, FILE)
-        FILE.close()
+        ) as fh:
+            pickle.dump(dag, fh)
 
         ################################
         ## Calculate path expressions ##
@@ -190,7 +190,6 @@ def estimate_arrival_times(
 
         boundary_points = np.zeros((M, N))
         traveled_from_boundary = np.zeros((M, N))
-        path_end_point = np.zeros((M, N))
 
         [
             topology_change_recordings,
@@ -208,7 +207,7 @@ def estimate_arrival_times(
             N_v,
             equation_index,
             partial_S1,
-            DAG,
+            dag,
             topology_changes_singleindex,
             topology_change_recordings,
             boundary_points,
@@ -383,7 +382,7 @@ def estimate_arrival_times(
         A = sparse([A, lamb_S * D_t])
         print("Added time derivative")
 
-    [m, n] = A.size
+    [m, _n] = A.size
     b = matrix(0.0, (m, 1))
     b[: equation_index + 1, 0] = DELTA_T[: equation_index + 1, 0]
 
@@ -434,12 +433,10 @@ def estimate_arrival_times(
         )
         distance = data["distance"]
 
-        FILE = open(
-            tmp_dir_path / f"DAG_{horizon}_{surveys[k + 1]}_{surveys[k]}.dat",
-            "rb",
-        )
-        DAG = pickle.load(FILE)
-        FILE.close()
+        with open(
+            tmp_dir_path / f"dag_{horizon}_{surveys[k + 1]}_{surveys[k]}.dat", "rb"
+        ) as fh:
+            dag = pickle.load(fh)
 
         # FORWARD PROPAGATION
 
@@ -448,17 +445,17 @@ def estimate_arrival_times(
 
         for i in range(M):
             for j in range(N):
-                predecessors = list(DAG.predecessors(i * N + j))
+                predecessors = list(dag.predecessors(i * N + j))
                 forward_propagation[i * N + j, i * N + j] = 1
 
-                if predecessors != []:
-                    for index in range(len(predecessors)):
-                        parent_i = predecessors[index] // N
-                        parent_j = predecessors[index] % N
+                if predecessors:
+                    for predecessor in predecessors:
+                        parent_i = predecessor // N
+                        parent_j = predecessor % N
 
                         d = np.sqrt(
-                            np.abs(parent_i - i) * dy ** 2
-                            + np.abs(parent_j - j) * dx ** 2
+                            np.abs(parent_i - i) * dy**2
+                            + np.abs(parent_j - j) * dx**2
                         )
 
                         forward_propagation[
@@ -468,9 +465,7 @@ def estimate_arrival_times(
                             d
                             * (
                                 w[index_vector[int((i * N + j) + k * M * N)]]
-                                + w[
-                                    index_vector[int((predecessors[index]) + k * M * N)]
-                                ]
+                                + w[index_vector[int((predecessor) + k * M * N)]]
                             )
                             / (2.0 * len(predecessors))
                         )

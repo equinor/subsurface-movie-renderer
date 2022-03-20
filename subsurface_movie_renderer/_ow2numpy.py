@@ -11,7 +11,8 @@ def _regularize_grid(x_data, y_data, z_data, X, Y, samplingint):
 
     X: matrix corresponding to the wanted x-coordinates
     Y: matrix corresponding to the wanter y-coordinates
-    samplingint: approximate samplinginterval in the input data (assumed to use the same unit as X and Y)
+    samplingint: approximate samplinginterval in the input data
+                 (assumed to use the same unit as X and Y)
     """
 
     x_data_new = []
@@ -53,9 +54,11 @@ def iterate_file(input_file: Path):
     for line in input_file.read_text().splitlines():
         if line.startswith("!"):
             continue
-        elif line.startswith(
+
+        if line.startswith(
             " "
-        ):  # !! Any better file format definition of OpenWorks export that can be used to indentify rows with actual data?
+        ):  # TODO: Any better file format definition of OpenWorks export
+            # that can be used to indentify rows with actual data?
             _line, _trace, x, y, amp = line.strip().split()
 
             x = float(x)
@@ -67,6 +70,8 @@ def iterate_file(input_file: Path):
             horizon_name = line.strip().split()[3]
 
 
+# TODO: Remove disable
+# pylint: disable=too-many-arguments
 def _store_data(
     x_data, y_data, amp_data, horizon_name, X, Y, samplingint, amp_max, output_folder
 ):
@@ -87,6 +92,8 @@ def _store_data(
     print(f"Finished with: {horizon_name}")
 
 
+# TODO: Remove disable
+# pylint: disable=too-many-locals
 def process_file(input_file: Path, output_folder: Path, samplingint: float):
     boundary_margin = (
         5 * samplingint
