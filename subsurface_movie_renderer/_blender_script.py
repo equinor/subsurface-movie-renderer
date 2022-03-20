@@ -14,22 +14,25 @@ import numpy as np
 
 # Blender specific packages which are available only in Blender shipped Python:
 import bpy  # pylint: disable=import-error
-from mathutils import Vector, Color  # pylint: disable=import-error
 
 # TODO: Remove these disables
 # pylint: disable=redefined-outer-name, too-many-locals, too-many-statements
 
 
 def _set_world_parameters() -> None:
-    world = bpy.data.worlds["World"]
-    world.horizon_color = Color((0.5, 0.5, 0.5))
-    world.zenith_color = Color((0.8, 0.8, 0.8))
-    world.use_sky_blend = True
+    bpy.data.worlds["World"].use_nodes = True
+
+    inputs = bpy.data.worlds["World"].node_tree.nodes["Background"].inputs
+    inputs[0].default_value[:3] = (1, 1, 1)
+    inputs[1].default_value = 1.0
 
 
 def _add_text_annotations(annotations: List[dict]) -> None:
 
     blender_font = bpy.data.fonts.load("font.woff")
+
+    txt_material = bpy.data.materials.new("text")
+    txt_material.diffuse_color = [0, 0, 0, 1.0]
 
     for ann in annotations:
         for i, _ in enumerate(ann["rotation"]):
@@ -41,9 +44,10 @@ def _add_text_annotations(annotations: List[dict]) -> None:
         z *= SCALE_Z
 
         bpy.ops.object.text_add(location=(x, y, z), rotation=ann["rotation"])
-        txt = bpy.context.scene.objects.active
+        txt = bpy.context.view_layer.objects.active
         txt.data.body = ann["label"]
         txt.data.font = blender_font
+        txt.data.materials.append(txt_material)
 
 
 def _add_boundaries(boundary_boxes: List[dict]) -> None:
@@ -84,20 +88,23 @@ def _add_boundaries(boundary_boxes: List[dict]) -> None:
         mesh.from_pydata(verts, [], faces)
 
         new_object = bpy.data.objects.new(box["name"], mesh)
-        bpy.context.scene.objects.link(new_object)
+        bpy.context.collection.objects.link(new_object)
 
         for i, polygon in enumerate(new_object.data.polygons):
             material = bpy.data.materials.new(box["name"] + "_mat" + str(i))
-            material.emit = 0.1
-            material.diffuse_color = Color(box["color"])
-            material.use_transparency = True
 
             import random  # pylint: disable=import-outside-toplevel
 
             # TODO: Make this variation deterministic
-            material.alpha = random.uniform(
+            alpha = random.uniform(
                 max(0, box["alpha"] - 0.1), min(1, box["alpha"] + 0.1)
             )
+            material.use_nodes = True
+            material.blend_method = "HASHED"
+
+            inputs = material.node_tree.nodes["Principled BSDF"].inputs
+            inputs["Alpha"].default_value = alpha
+            inputs["Base Color"].default_value = box["color"] + [alpha]
 
             new_object.data.materials.append(material)
             polygon.material_index = i
@@ -125,22 +132,17 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
         objectdata = bpy.data.objects.new(object_name, curvedata)
         objectdata.location = coordinates[0]
 
-        bpy.context.scene.objects.link(objectdata)
+        bpy.context.collection.objects.link(objectdata)
 
         polyline = curvedata.splines.new("POLY")
         polyline.points.add(len(coordinates) - 1)
         for i, coordinate in enumerate(coordinates):
             polyline.points[i].co = coordinate + (1,)
 
-        bpy.context.scene.objects.active = bpy.data.objects[object_name]
+        bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
 
         well_mat = bpy.data.materials.new(material_name)
-        well_mat.emit = 0.5
-        well_mat.diffuse_color = Color(well["color"])
-
-        if "alpha" in well:
-            well_mat.use_transparency = True
-            well_mat.alpha = well["alpha"]
+        well_mat.diffuse_color = well["color"] + [well.get("alpha", 1.0)]
 
         bpy.data.objects[object_name].data.bevel_depth = 1e-2
         bpy.data.objects[object_name].data.fill_mode = "FULL"
@@ -154,15 +156,19 @@ def define_surface_colorscale(colorscale: List[List[float]]) -> List:
     materials = []
 
     for i, color in enumerate(colorscale):
-        materials.append(bpy.data.materials.new("mat_val" + str(i)))
-        materials[-1].emit = 0.4
-        materials[-1].use_transparency = True
-        materials[-1].diffuse_color = Color(color[:3])
+        mat = bpy.data.materials.new("mat_val" + str(i))
+        alpha = i / 15.0 if i < 15 else 1.0
 
-        if i < 10:
-            materials[-1].alpha = i / 10.0
-        else:
-            materials[-1].alpha = 1.0
+        mat.use_nodes = True
+        mat.blend_method = "HASHED"
+
+        inputs = mat.node_tree.nodes["Principled BSDF"].inputs
+        inputs["Alpha"].default_value = alpha
+        inputs["Base Color"].default_value = color[:3] + [alpha]
+        inputs["Emission"].default_value = color[:3] + [alpha]
+        inputs["Emission Strength"].default_value = 0.1 * alpha
+
+        materials.append(mat)
 
     return materials
 
@@ -188,18 +194,19 @@ class Horizon:
         self._top_ty_materials = []
         n_materials = len(materials)
         for i in range(n_materials):
-            red = 1 - 1.0 * i / n_materials
-            green = 1 - 1.0 * i / n_materials
-            blue = 1 - 1.0 * i / n_materials
+            red = 0.7 * (1 - i / n_materials)
+            green = 0.7 * (1 - i / n_materials)
+            blue = 0.7 * (1 - i / n_materials)
 
-            self._top_ty_materials.append(
-                bpy.data.materials.new("top_ty_mat_val" + str(i))
-            )
-            self._top_ty_materials[-1].emit = 0.4
-            self._top_ty_materials[-1].use_transparency = True
-            self._top_ty_materials[-1].diffuse_color = Color((red, green, blue))
+            mat = bpy.data.materials.new("top_ty_mat_val" + str(i))
+            mat.use_nodes = True
+            mat.blend_method = "HASHED"
 
-            self._top_ty_materials[-1].alpha = self._alpha
+            inputs = mat.node_tree.nodes["Principled BSDF"].inputs
+            inputs["Alpha"].default_value = self._alpha
+            inputs["Base Color"].default_value = (red, green, blue, self._alpha)
+
+            self._top_ty_materials.append(mat)
 
     def update_blender(self) -> None:
 
@@ -215,7 +222,7 @@ class Horizon:
 
         Z *= -1.0
 
-        # ALL CODE BELOW IS ~REUSED. =>> CONSOLIDATE
+        # TODO: ALL CODE BELOW IS ~REUSED. =>> CONSOLIDATE
 
         [M, N] = np.shape(Z)
 
@@ -266,30 +273,30 @@ class Horizon:
 
                     faces.append(
                         (
-                            vertex2index[(N + 1) * i + j],
-                            vertex2index[(N + 1) * i + 1 + j],
-                            vertex2index[(N + 1) * (i + 1) + 1 + j],
-                            vertex2index[(N + 1) * (i + 1) + j],
+                            int(vertex2index[(N + 1) * i + j]),
+                            int(vertex2index[(N + 1) * i + 1 + j]),
+                            int(vertex2index[(N + 1) * (i + 1) + 1 + j]),
+                            int(vertex2index[(N + 1) * (i + 1) + j]),
                         )
                     )
 
                     values.append(int(amp[i, j]))
 
         try:
-            bpy.data.objects[self._horizon_name].select = True
+            bpy.data.objects[self._horizon_name].select_set(True)
             bpy.ops.object.delete()
-            bpy.data.objects[self._horizon_name].select = False
+            bpy.data.objects[self._horizon_name].select_set(False)
         except KeyError:
             pass
 
         mesh = bpy.data.meshes.new(self._horizon_name)
         new_object = bpy.data.objects.new(self._horizon_name, mesh)
-        new_object.location = bpy.context.scene.cursor_location
-        bpy.context.scene.objects.link(new_object)
+        new_object.location = bpy.context.scene.cursor.location
+        bpy.context.collection.objects.link(new_object)
         mesh.from_pydata(verts, [], faces)
         mesh.update(calc_edges=True)
 
-        bpy.context.scene.objects.active = bpy.data.objects[self._horizon_name]
+        bpy.context.view_layer.objects.active = bpy.data.objects[self._horizon_name]
 
         for i in range(len(materials)):
             bpy.ops.object.material_slot_add()
@@ -308,9 +315,9 @@ class Horizon:
         obj.data.update()
         bpy.ops.object.mode_set(mode="OBJECT")  # Return to object mode
 
-        bpy.data.objects[self._horizon_name].select = True
+        bpy.data.objects[self._horizon_name].select_set(True)
         bpy.ops.object.shade_smooth()
-        bpy.data.objects[self._horizon_name].select = False
+        bpy.data.objects[self._horizon_name].select_set(False)
 
 
 class TimeDependentHorizon:
@@ -338,8 +345,8 @@ class TimeDependentHorizon:
             data = np.load(file_to_load)
             self._currently_loaded_file = file_to_load
 
-            self._amp1 = data["amp1"]
-            self._amp2 = data["amp2"]
+            self._amp1 = data["AMP1"]
+            self._amp2 = data["AMP2"]
 
             self.X = data["X"]
             self.Y = data["Y"]
@@ -350,7 +357,7 @@ class TimeDependentHorizon:
 
             self._AT = self._time_a + (self._time_b - self._time_a) * data["AT"] / 100.0
 
-    def _get_values(self, time: float) -> Tuple[np.array, np.array, np.array]:
+    def _get_values(self, time: float):
         self._load_file(time)
 
         if time <= self._time_a:
@@ -421,30 +428,31 @@ class TimeDependentHorizon:
 
                     faces.append(
                         (
-                            vertex2index[(N + 1) * i + j],
-                            vertex2index[(N + 1) * i + 1 + j],
-                            vertex2index[(N + 1) * (i + 1) + 1 + j],
-                            vertex2index[(N + 1) * (i + 1) + j],
+                            int(vertex2index[(N + 1) * i + j]),
+                            int(vertex2index[(N + 1) * i + 1 + j]),
+                            int(vertex2index[(N + 1) * (i + 1) + 1 + j]),
+                            int(vertex2index[(N + 1) * (i + 1) + j]),
                         )
                     )
 
                     values.append(int(amp[i, j]))
 
         try:
-            bpy.data.objects[self._horizon_name].select = True
+            bpy.data.objects[self._horizon_name].select_set(True)
             bpy.ops.object.delete()
-            bpy.data.objects[self._horizon_name].select = False
+            bpy.data.objects[self._horizon_name].select_set(False)
         except KeyError:
             pass
 
         mesh = bpy.data.meshes.new(self._horizon_name)
         new_object = bpy.data.objects.new(self._horizon_name, mesh)
-        new_object.location = bpy.context.scene.cursor_location
-        bpy.context.scene.objects.link(new_object)
+        new_object.location = bpy.context.scene.cursor.location
+
+        bpy.context.collection.objects.link(new_object)
         mesh.from_pydata(verts, [], faces)
         mesh.update(calc_edges=True)
 
-        bpy.context.scene.objects.active = bpy.data.objects[self._horizon_name]
+        bpy.context.view_layer.objects.active = bpy.data.objects[self._horizon_name]
 
         for i, material in enumerate(materials):
             bpy.ops.object.material_slot_add()
@@ -461,9 +469,9 @@ class TimeDependentHorizon:
         obj.data.update()
         bpy.ops.object.mode_set(mode="OBJECT")  # Return to object mode
 
-        bpy.data.objects[self._horizon_name].select = True
+        bpy.data.objects[self._horizon_name].select_set(True)
         bpy.ops.object.shade_smooth()
-        bpy.data.objects[self._horizon_name].select = False
+        bpy.data.objects[self._horizon_name].select_set(False)
 
 
 def _configure_static_horizons(static_horizons_config: dict) -> list:
@@ -481,9 +489,8 @@ def _configure_static_horizons(static_horizons_config: dict) -> list:
 
 def _add_camera_tracking(pos: Tuple[int, int, int]) -> None:
     empty = bpy.data.objects.new("Empty", None)
-    empty.location = Vector((pos[0] * SCALE_X, pos[1] * SCALE_Y, pos[2] * SCALE_Z))
-    bpy.context.scene.objects.link(empty)
-    bpy.context.scene.update()
+    empty.location = (pos[0] * SCALE_X, pos[1] * SCALE_Y, pos[2] * SCALE_Z)
+    bpy.context.collection.objects.link(empty)
 
     track_to = bpy.data.objects["Camera"].constraints.new("TRACK_TO")
     track_to.target = empty
@@ -507,8 +514,6 @@ def _render_frames(
     bpy.context.scene.render.resolution_y = 2 * height
 
     camera = bpy.data.objects["Camera"]
-    lamp = bpy.data.objects["Lamp"]
-    lamp.data.energy = 0.0
 
     if static_horizons is not None:
         for static_horizon in static_horizons:
@@ -527,7 +532,7 @@ def _render_frames(
             y *= SCALE_Y  # type: ignore[operator]
             z *= SCALE_Z  # type: ignore[operator]
 
-            camera.location.xyz = lamp.location.xyz = Vector((x, y, z))
+            camera.location.xyz = (x, y, z)
 
             scene_key = bpy.data.scenes.keys()[0]
             bpy.data.scenes[scene_key].render.filepath = (
@@ -548,7 +553,7 @@ if __name__ == "__main__":
     )
 
     # Delete default blender provided cube and lamp:
-    bpy.data.objects["Cube"].select = True
+    bpy.data.objects["Cube"].select_set(True)
     bpy.ops.object.delete()
 
     SCALE_X = (
@@ -571,6 +576,8 @@ if __name__ == "__main__":
     _add_camera_tracking(user_configuration["visual_settings"]["camera_track_point"])
 
     resolution = user_configuration["visual_settings"]["resolution"]
+
+    bpy.context.scene.view_settings.view_transform = "Standard"
 
     _render_frames(
         width=resolution["width"],

@@ -1,6 +1,7 @@
 import argparse
 import shutil
 import pathlib
+import subprocess
 
 from ._parse_config import parse_config
 from ._render_movie import render_movie
@@ -15,6 +16,17 @@ def _check_nonpython_dependencies() -> None:
             "(https://www.blender.org/download/), extract and make available on $PATH. "
             "Currently only blender <= 2.79 is supported."
         )
+
+    blender_version = (
+        subprocess.run(
+            ["blender", "--version"], capture_output=True, text=True, check=True
+        )
+        .stdout.splitlines()[0]
+        .split()[1]
+    )
+
+    if int(blender_version.split(".")[0]) < 3:
+        raise RuntimeError("Blender major version needs to be >= 3")
 
     if shutil.which("ffmpeg") is None:
         raise RuntimeError(

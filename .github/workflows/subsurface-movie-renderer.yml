@@ -35,10 +35,10 @@ jobs:
       - name: Install non-python dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install ffmpeg libglu1-mesa 
-          wget -q https://ftp.nluug.nl/pub/graphics/blender/release/Blender2.79/blender-2.79-linux-glibc219-x86_64.tar.bz2
-          tar xjf blender*.tar.bz2
-          echo "$PWD/blender-2.79-linux-glibc219-x86_64" >> $GITHUB_PATH         
+          sudo apt-get install ffmpeg libglu1-mesa xvfb
+          wget -q https://ftp.nluug.nl/pub/graphics/blender/release/Blender3.1/blender-3.1.0-linux-x64.tar.xz
+          tar xf blender*.tar.xz
+          echo "$PWD/blender-3.1.0-linux-x64" >> $GITHUB_PATH         
           
       - name: 📦 Install python package and dependencies
         run: |
@@ -57,7 +57,7 @@ jobs:
           mypy --package subsurface_movie_renderer
 
       - name: 🤖 Run tests
-        run: subsurface_movie_renderer example_config/user_configuration.yml
+        run: xvfb-run --auto-servernum subsurface_movie_renderer example_config/user_configuration.yml
 
       - name: 🚢 Build and deploy Python package
         if: github.event_name == 'release' && matrix.python-version == '3.8'
