@@ -66,6 +66,14 @@ def estimate_arrival_times(
 
     S = len(surveys)
 
+    ### TODO: Make this an user option if we want to fix data such that it never shrinks laterally
+
+    for i, amp_map in enumerate(amp_maps):
+        if i > 0:
+            amp_map[amp_map == 0.0] = prev_amp[amp_map == 0.0]
+        prev_amp = amp_map
+    ####
+
     [N_v, index_vector] = grid_cell_index(
         amp_maps
     )  # calculate index vector and number of independent slowness values
