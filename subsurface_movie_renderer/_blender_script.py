@@ -16,7 +16,7 @@ import numpy as np
 import bpy  # pylint: disable=import-error
 
 # TODO: Remove these disables
-# pylint: disable=redefined-outer-name, too-many-locals, too-many-statements
+# pylint: disable=redefined-outer-name, too-many-locals, too-many-statements, too-few-public-methods, too-many-arguments
 
 
 def _set_world_parameters() -> None:
@@ -487,6 +487,50 @@ def _configure_static_horizons(static_horizons_config: dict) -> list:
     return static_horizons
 
 
+class ParticleSystem:
+    def __init__(
+        self,
+        origin,
+        source_pos,
+        source_diameter,
+        max_distance,
+        acceleration,
+        fps,
+        frame_start,
+        frame_end,
+        particle_density,
+    ) -> None:
+
+        location = (
+            (source_pos[0] - origin[0]) * SCALE_X,
+            (source_pos[1] - origin[1]) * SCALE_Y,
+            (source_pos[2] - origin[2]) * SCALE_Z,
+        )
+        bpy.ops.mesh.primitive_plane_add(
+            location=location, size=source_diameter * SCALE_X
+        )
+
+        obj = bpy.data.objects.get("Plane")
+        obj.select_set(False)
+
+        obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
+        particle_system = obj.particle_systems[0]
+
+        # particle_system.point_cache.frame_start = frame_start
+        # particle_system.point_cache.frame_end = frame_end
+
+        settings = particle_system.settings
+        settings.particle_size = 0.005
+        settings.render_type = "OBJECT"
+        settings.count = particle_density * (frame_end - frame_start)
+        settings.lifetime = (  # s = 0.5at^2
+            math.sqrt(2 * max_distance * SCALE_Z / acceleration) * fps
+        )
+        settings.frame_start = frame_start
+        settings.frame_end = frame_end
+        settings.instance_object = bpy.data.objects["Cube"]
+
+
 def _add_camera_tracking(pos: Tuple[int, int, int]) -> None:
     empty = bpy.data.objects.new("Empty", None)
     empty.location = (pos[0] * SCALE_X, pos[1] * SCALE_Y, pos[2] * SCALE_Z)
@@ -512,6 +556,7 @@ def _render_frames(
 
     bpy.context.scene.render.resolution_x = 2 * width
     bpy.context.scene.render.resolution_y = 2 * height
+    bpy.context.scene.view_settings.view_transform = "Standard"
 
     camera = bpy.data.objects["Camera"]
 
@@ -539,6 +584,8 @@ def _render_frames(
                 "image" + (6 - len(str(i))) * "0" + str(i)
             )
 
+            bpy.context.scene.frame_set(i)
+
             bpy.ops.render.render(write_still=True)
 
 
@@ -552,9 +599,11 @@ if __name__ == "__main__":
         json.loads(Path("colorscale.json").read_text())
     )
 
-    # Delete default blender provided cube and lamp:
-    bpy.data.objects["Cube"].select_set(True)
-    bpy.ops.object.delete()
+    fps = user_configuration["visual_settings"]["fps"]
+    movie_duration = user_configuration["visual_settings"]["movie_duration"]
+    time_axis = [
+        float(t) for t in user_configuration["visual_settings"]["camera_path"].keys()
+    ]
 
     SCALE_X = (
         SCALE_Y
@@ -577,7 +626,34 @@ if __name__ == "__main__":
 
     resolution = user_configuration["visual_settings"]["resolution"]
 
-    bpy.context.scene.view_settings.view_transform = "Standard"
+    ACCELERATION = 10
+    bpy.context.scene.gravity = (0, 0, ACCELERATION)
+    bpy.context.scene.frame_end = int(fps * movie_duration)
+
+    bpy.data.objects["Cube"].material_slots[0].material = materials[3]
+    bpy.data.objects["Cube"].hide_render = True
+
+    for i, particle_system in enumerate(user_configuration.get("particle_systems", [])):
+        if i > 0:
+            raise NotImplementedError("Multiple particle systems not implemented yet.")
+        frame_start = int(
+            fps
+            * movie_duration
+            * (particle_system["start_time"] - time_axis[0])
+            / (time_axis[-1] - time_axis[0])
+        )
+        frame_end = int(fps * movie_duration)
+        ParticleSystem(
+            origin=origin,
+            source_pos=particle_system["source_pos"],
+            source_diameter=particle_system["source_diameter"],
+            fps=fps,
+            frame_start=frame_start,
+            frame_end=frame_end,
+            particle_density=particle_system["particle_density"],
+            acceleration=ACCELERATION,
+            max_distance=170,
+        )
 
     _render_frames(
         width=resolution["width"],
