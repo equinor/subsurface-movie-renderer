@@ -7,7 +7,7 @@ import csv
 import sys
 import json
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from pathlib import Path
 
 import numpy as np
@@ -180,7 +180,7 @@ class Horizon:
         Y: np.array,
         Z: np.array,
         horizon_name: str,
-        alpha: float = 1.0,
+        alpha: Union[float, dict] = 1.0,
     ):
         self._X = X
         self._Y = Y
@@ -203,10 +203,21 @@ class Horizon:
             mat.blend_method = "HASHED"
 
             inputs = mat.node_tree.nodes["Principled BSDF"].inputs
-            inputs["Alpha"].default_value = self._alpha
-            inputs["Base Color"].default_value = (red, green, blue, self._alpha)
+            inputs["Alpha"].default_value = 1
+            inputs["Base Color"].default_value = [red, green, blue, 1]
 
             self._top_ty_materials.append(mat)
+
+    def update_alpha(self, t):
+        if isinstance(self._alpha, (int, float)):
+            alpha = self._alpha
+        else:
+            alpha = np.interp(t, list(self._alpha.keys()), list(self._alpha.values()))
+
+        for mat in self._top_ty_materials:
+            inputs = mat.node_tree.nodes["Principled BSDF"].inputs
+            inputs["Alpha"].default_value = alpha
+            inputs["Base Color"].default_value[3] = alpha
 
     def update_blender(self) -> None:
 
@@ -572,6 +583,10 @@ def _render_frames(
             if td_horizons is not None:
                 for td_horizon in td_horizons:
                     td_horizon.update_blender(t)  # type: ignore[arg-type]
+
+            if static_horizons is not None:
+                for static_horizon in static_horizons:
+                    static_horizon.update_alpha(t)
 
             x *= SCALE_X  # type: ignore[operator]
             y *= SCALE_Y  # type: ignore[operator]
