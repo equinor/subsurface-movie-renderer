@@ -13,8 +13,8 @@ visual_settings:
     height: 1080
   # Font wanted for text annotations:
   font: https://eds-static.equinor.com/font/Equinor-Regular.woff
-  movie_duration: 3  # Duration of output movie in seconds
-  fps: 25  # Frames per second in output movie
+  movie_duration: 1  # Duration of output movie in seconds
+  fps: 2  # Frames per second in output movie
   camera_track_point: [2570, 1400, -920]  # Location in 3D which camera should point to (relative to origin)
   # The path parametrized as {t: [x, y, z]} which the camera should traverse through the movie
   camera_path:

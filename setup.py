@@ -26,7 +26,7 @@ setup(
         "cvxopt",
         "matplotlib",
         "networkx",
-        "numpy~=1.10",  # blender==2.79 ships with numpy==1.10.1
+        "numpy~=1.22",  # blender==3.1.0 ships with numpy==1.22.0
         "pyyaml>=5.1",
         "requests>=2.20",
         "scipy",
