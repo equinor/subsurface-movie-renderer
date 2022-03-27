@@ -516,8 +516,8 @@ class ParticleSystem:
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
         particle_system = obj.particle_systems[0]
 
-        # particle_system.point_cache.frame_start = frame_start
-        # particle_system.point_cache.frame_end = frame_end
+        #particle_system.point_cache.frame_start = frame_start
+        #particle_system.point_cache.frame_end = frame_end
 
         settings = particle_system.settings
         settings.particle_size = 0.005
@@ -628,11 +628,11 @@ if __name__ == "__main__":
 
     ACCELERATION = 10
     bpy.context.scene.gravity = (0, 0, ACCELERATION)
-    bpy.context.scene.frame_end = int(fps * movie_duration)
+    bpy.context.scene.frame_end = int(fps*movie_duration)
 
     bpy.data.objects["Cube"].material_slots[0].material = materials[3]
     bpy.data.objects["Cube"].hide_render = True
-
+    
     for i, particle_system in enumerate(user_configuration.get("particle_systems", [])):
         if i > 0:
             raise NotImplementedError("Multiple particle systems not implemented yet.")
