@@ -535,6 +535,7 @@ class ParticleSystem:
             math.sqrt(2 * max_distance * SCALE_Z / acceleration) * fps
         )
         settings.time_tweak = 25 / fps
+        settings.normal_factor = 0
         settings.frame_start = frame_start
         settings.frame_end = frame_end
         settings.instance_object = bpy.data.objects["Cube"]
@@ -639,7 +640,7 @@ if __name__ == "__main__":
 
     resolution = user_configuration["visual_settings"]["resolution"]
 
-    ACCELERATION = 0.1
+    ACCELERATION = 0.01
     bpy.context.scene.gravity = (0, 0, ACCELERATION)
     bpy.context.scene.frame_end = int(fps * movie_duration)
 
@@ -665,7 +666,7 @@ if __name__ == "__main__":
             frame_end=frame_end,
             particle_density=particle_system["particle_density"],
             acceleration=ACCELERATION,
-            max_distance=170,
+            max_distance=particle_system["max_distance"],
         )
 
     _render_frames(

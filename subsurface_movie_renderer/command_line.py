@@ -44,7 +44,7 @@ def main_renderer() -> None:
     parser.add_argument(
         "--output",
         type=pathlib.Path,
-        default=pathlib.Path("3D-movie.avi"),
+        default=pathlib.Path("3D-movie.webm"),
         metavar="OUTPUT_FILE",
         help="Output filename for rendered movie",
     )

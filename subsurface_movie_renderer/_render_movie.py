@@ -109,22 +109,24 @@ def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
                         if line.startswith(b"Saved: 'image"):
                             pbar.update()
 
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                tmp_dir_path / "image%06d.png",
-                "-r",
-                str(fps),
-                "-b",
-                "10000k",
-                "-vcodec",
-                "msmpeg4v2",
-                output_path,
-            ],
-            capture_output=True,
-            check=True,
-        )
+        flags = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            "image%06d.png",
+            "-r",
+            str(fps),
+            "-c:v",
+            "libvpx-vp9",
+            "-b:v",
+            "2M",
+            "-an",
+        ]
+
+        for extra_flags in [
+            ["-pass", "1", "-f", "null", "/dev/null"],
+            ["-pass", "2", str(output_path)],
+        ]:
+            subprocess.run(flags + extra_flags, check=True, cwd=tmp_dir_path)
 
         print(f"Movie created and saved at {output_path}")
