@@ -27,42 +27,69 @@ def _set_world_parameters() -> None:
     inputs[1].default_value = 1.0
 
 
-def _add_text_annotations(annotations: List[dict]) -> None:
-
+class TextAnnotation:
     blender_font = bpy.data.fonts.load("font.woff")
 
-    txt_material = bpy.data.materials.new("text")
-    txt_material.diffuse_color = [0, 0, 0, 1.0]
+    def __init__(self, label, x, y, z, rotation, alpha):
+        self._alpha = alpha
 
+        txt_material = bpy.data.materials.new("text")
+        txt_material.use_nodes = True
+        txt_material.blend_method = "HASHED"
+
+        inputs = txt_material.node_tree.nodes["Principled BSDF"].inputs
+        inputs["Alpha"].default_value = 1.0
+        inputs["Base Color"].default_value = [0, 0, 0, 1]
+
+        x *= SCALE_X
+        y *= SCALE_Y
+        z *= SCALE_Z
+
+        bpy.ops.object.text_add(location=(x, y, z), rotation=rotation)
+        txt = bpy.context.view_layer.objects.active
+        txt.data.body = label
+        txt.data.font = TextAnnotation.blender_font
+        txt.data.materials.append(txt_material)
+
+        self._material = txt_material
+
+    def update_alpha(self, t):
+        update_alpha(t, self._alpha, [self._material])
+
+
+def _add_text_annotations(annotations: List[dict]) -> None:
+
+    text_annotations = []
     for ann in annotations:
         for i, _ in enumerate(ann["rotation"]):
             ann["rotation"][i] *= math.pi / 180
 
         x, y, z = ann["location"]
-        x *= SCALE_X
-        y *= SCALE_Y
-        z *= SCALE_Z
 
-        bpy.ops.object.text_add(location=(x, y, z), rotation=ann["rotation"])
-        txt = bpy.context.view_layer.objects.active
-        txt.data.body = ann["label"]
-        txt.data.font = blender_font
-        txt.data.materials.append(txt_material)
+        text_annotations.append(
+            TextAnnotation(
+                label=ann["label"],
+                x=x,
+                y=y,
+                z=z,
+                rotation=ann["rotation"],
+                alpha=ann.get("alpha", 1.0),
+            )
+        )
+
+    return text_annotations
 
 
-def _add_boundaries(boundary_boxes: List[dict]) -> None:
-
-    for box in boundary_boxes:
-        [x_min, x_max] = box["xrange"]
-        [y_min, y_max] = box["yrange"]
-        [z_min, z_max] = box["zrange"]
-
+class BoundaryBox:
+    def __init__(self, name, x_min, x_max, y_min, y_max, z_min, z_max, alpha, color):
         x_min *= SCALE_X
         x_max *= SCALE_X
         y_min *= SCALE_Y
         y_max *= SCALE_Y
         z_min *= SCALE_Z
         z_max *= SCALE_Z
+
+        self._alpha = alpha
 
         verts = [
             (x_min, y_max, z_min),
@@ -84,30 +111,27 @@ def _add_boundaries(boundary_boxes: List[dict]) -> None:
             (1, 2, 6, 5),
         ]
 
-        mesh = bpy.data.meshes.new(box["name"])
+        mesh = bpy.data.meshes.new(name)
         mesh.from_pydata(verts, [], faces)
 
-        new_object = bpy.data.objects.new(box["name"], mesh)
-        bpy.context.collection.objects.link(new_object)
+        self._new_object = bpy.data.objects.new(name, mesh)
+        bpy.context.collection.objects.link(self._new_object)
 
-        for i, polygon in enumerate(new_object.data.polygons):
-            material = bpy.data.materials.new(box["name"] + "_mat" + str(i))
+        for i, polygon in enumerate(self._new_object.data.polygons):
+            material = bpy.data.materials.new(name + "_mat" + str(i))
 
-            import random  # pylint: disable=import-outside-toplevel
-
-            # TODO: Make this variation deterministic
-            alpha = random.uniform(
-                max(0, box["alpha"] - 0.1), min(1, box["alpha"] + 0.1)
-            )
             material.use_nodes = True
             material.blend_method = "HASHED"
 
             inputs = material.node_tree.nodes["Principled BSDF"].inputs
-            inputs["Alpha"].default_value = alpha
-            inputs["Base Color"].default_value = box["color"] + [alpha]
+            inputs["Alpha"].default_value = 1.0
+            inputs["Base Color"].default_value = color + [1.0]
 
-            new_object.data.materials.append(material)
+            self._new_object.data.materials.append(material)
             polygon.material_index = i
+
+    def update_alpha(self, t):
+        update_alpha(t, self._alpha, self._new_object.data.materials)
 
 
 def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
@@ -152,6 +176,18 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
 ###################################
 
 
+def update_alpha(time, alpha, materials):
+    if isinstance(alpha, (int, float)):
+        new_alpha = alpha
+    else:
+        new_alpha = np.interp(time, list(alpha.keys()), list(alpha.values()))
+
+    for mat in materials:
+        inputs = mat.node_tree.nodes["Principled BSDF"].inputs
+        inputs["Alpha"].default_value = new_alpha
+        inputs["Base Color"].default_value[3] = new_alpha
+
+
 def define_surface_colorscale(colorscale: List[List[float]]) -> List:
     materials = []
 
@@ -166,7 +202,7 @@ def define_surface_colorscale(colorscale: List[List[float]]) -> List:
         inputs["Alpha"].default_value = alpha
         inputs["Base Color"].default_value = color[:3] + [alpha]
         inputs["Emission"].default_value = color[:3] + [alpha]
-        inputs["Emission Strength"].default_value = 0.1 * alpha
+        inputs["Emission Strength"].default_value = 0.3 * alpha
 
         materials.append(mat)
 
@@ -209,15 +245,7 @@ class Horizon:
             self._top_ty_materials.append(mat)
 
     def update_alpha(self, t):
-        if isinstance(self._alpha, (int, float)):
-            alpha = self._alpha
-        else:
-            alpha = np.interp(t, list(self._alpha.keys()), list(self._alpha.values()))
-
-        for mat in self._top_ty_materials:
-            inputs = mat.node_tree.nodes["Principled BSDF"].inputs
-            inputs["Alpha"].default_value = alpha
-            inputs["Base Color"].default_value[3] = alpha
+        update_alpha(t, self._alpha, self._top_ty_materials)
 
     def update_blender(self) -> None:
 
@@ -556,7 +584,9 @@ def _render_frames(
     width: int,
     height: int,
     static_horizons: List[Horizon],
-    td_horizons: List[TimeDependentHorizon] = None,
+    boundary_boxes: List[BoundaryBox],
+    td_horizons: List[TimeDependentHorizon],
+    text_annotations,
 ) -> None:
 
     scene_key = bpy.data.scenes.keys()[0]
@@ -583,9 +613,14 @@ def _render_frames(
                 for td_horizon in td_horizons:
                     td_horizon.update_blender(t)  # type: ignore[arg-type]
 
-            if static_horizons is not None:
-                for static_horizon in static_horizons:
-                    static_horizon.update_alpha(t)
+            for static_horizon in static_horizons:
+                static_horizon.update_alpha(t)
+
+            for boundary_box in boundary_boxes:
+                boundary_box.update_alpha(t)
+
+            for text_annotation in text_annotations:
+                text_annotation.update_alpha(t)
 
             x *= SCALE_X  # type: ignore[operator]
             y *= SCALE_Y  # type: ignore[operator]
@@ -626,8 +661,27 @@ if __name__ == "__main__":
 
     _set_world_parameters()
     _add_wells(origin, user_configuration["wells"])
-    _add_text_annotations(user_configuration["text_annotations"])
-    _add_boundaries(user_configuration["boundary_boxes"])
+    text_annotations = _add_text_annotations(user_configuration["text_annotations"])
+
+    boundary_boxes = []
+    for box in user_configuration.get("boundary_boxes", []):
+        [x_min, x_max] = box["xrange"]
+        [y_min, y_max] = box["yrange"]
+        [z_min, z_max] = box["zrange"]
+
+        boundary_boxes.append(
+            BoundaryBox(
+                name=box["name"],
+                alpha=box["alpha"],
+                color=box["color"],
+                x_min=x_min,
+                x_max=x_max,
+                y_min=y_min,
+                y_max=y_max,
+                z_min=z_min,
+                z_max=z_max,
+            )
+        )
 
     td_horizons = [
         TimeDependentHorizon(horizon, horizon_settings["depth"])
@@ -640,7 +694,7 @@ if __name__ == "__main__":
 
     resolution = user_configuration["visual_settings"]["resolution"]
 
-    ACCELERATION = 0.01
+    ACCELERATION = 0.07
     bpy.context.scene.gravity = (0, 0, ACCELERATION)
     bpy.context.scene.frame_end = int(fps * movie_duration)
 
@@ -676,4 +730,6 @@ if __name__ == "__main__":
             user_configuration["static_horizons"]
         ),
         td_horizons=td_horizons,
+        boundary_boxes=boundary_boxes,
+        text_annotations=text_annotations,
     )
