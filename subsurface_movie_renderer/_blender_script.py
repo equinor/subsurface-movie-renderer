@@ -157,7 +157,7 @@ def define_surface_colorscale(colorscale: List[List[float]]) -> List:
 
     for i, color in enumerate(colorscale):
         mat = bpy.data.materials.new("mat_val" + str(i))
-        alpha = i / 15.0 if i < 15 else 1.0
+        alpha = i / 10.0 if i < 10 else 1.0
 
         mat.use_nodes = True
         mat.blend_method = "HASHED"
@@ -527,16 +527,14 @@ class ParticleSystem:
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
         particle_system = obj.particle_systems[0]
 
-        # particle_system.point_cache.frame_start = frame_start
-        # particle_system.point_cache.frame_end = frame_end
-
         settings = particle_system.settings
-        settings.particle_size = 0.005
+        settings.particle_size = 0.002
         settings.render_type = "OBJECT"
         settings.count = particle_density * (frame_end - frame_start)
-        settings.lifetime = (  # s = 0.5at^2
+        settings.lifetime = int(  # s = 0.5at^2
             math.sqrt(2 * max_distance * SCALE_Z / acceleration) * fps
         )
+        settings.time_tweak = 25 / fps
         settings.frame_start = frame_start
         settings.frame_end = frame_end
         settings.instance_object = bpy.data.objects["Cube"]
@@ -565,8 +563,8 @@ def _render_frames(
 
     scene.camera = bpy.data.objects["Camera"]
 
-    bpy.context.scene.render.resolution_x = 2 * width
-    bpy.context.scene.render.resolution_y = 2 * height
+    bpy.context.scene.render.resolution_x = width
+    bpy.context.scene.render.resolution_y = height
     bpy.context.scene.view_settings.view_transform = "Standard"
 
     camera = bpy.data.objects["Camera"]
@@ -641,11 +639,11 @@ if __name__ == "__main__":
 
     resolution = user_configuration["visual_settings"]["resolution"]
 
-    ACCELERATION = 10
+    ACCELERATION = 0.1
     bpy.context.scene.gravity = (0, 0, ACCELERATION)
     bpy.context.scene.frame_end = int(fps * movie_duration)
 
-    bpy.data.objects["Cube"].material_slots[0].material = materials[3]
+    bpy.data.objects["Cube"].material_slots[0].material = materials[1]
     bpy.data.objects["Cube"].hide_render = True
 
     for i, particle_system in enumerate(user_configuration.get("particle_systems", [])):
