@@ -533,7 +533,6 @@ class ParticleSystem:
         source_pos,
         source_diameter,
         max_distance,
-        acceleration,
         fps,
         frame_start,
         frame_end,
@@ -555,15 +554,15 @@ class ParticleSystem:
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
         particle_system = obj.particle_systems[0]
 
+        velocity = 1
         settings = particle_system.settings
         settings.particle_size = 0.002
         settings.render_type = "OBJECT"
         settings.count = particle_density * (frame_end - frame_start)
-        settings.lifetime = int(  # s = 0.5at^2
-            math.sqrt(2 * max_distance * SCALE_Z / acceleration) * fps
-        )
+        settings.lifetime = max_distance * SCALE_Z * fps / velocity
+        settings.physics_type = "NEWTON"
         settings.time_tweak = 25 / fps
-        settings.normal_factor = 0
+        settings.normal_factor = velocity
         settings.frame_start = frame_start
         settings.frame_end = frame_end
         settings.instance_object = bpy.data.objects["Cube"]
@@ -694,11 +693,10 @@ if __name__ == "__main__":
 
     resolution = user_configuration["visual_settings"]["resolution"]
 
-    ACCELERATION = 0.07
-    bpy.context.scene.gravity = (0, 0, ACCELERATION)
+    bpy.context.scene.gravity = (0, 0, 0)
     bpy.context.scene.frame_end = int(fps * movie_duration)
 
-    bpy.data.objects["Cube"].material_slots[0].material = materials[1]
+    bpy.data.objects["Cube"].material_slots[0].material = materials[3]
     bpy.data.objects["Cube"].hide_render = True
 
     for i, particle_system in enumerate(user_configuration.get("particle_systems", [])):
@@ -719,7 +717,6 @@ if __name__ == "__main__":
             frame_start=frame_start,
             frame_end=frame_end,
             particle_density=particle_system["particle_density"],
-            acceleration=ACCELERATION,
             max_distance=particle_system["max_distance"],
         )
 
