@@ -548,7 +548,7 @@ class ParticleSystem:
             location=location, size=source_diameter * SCALE_X
         )
 
-        obj = bpy.data.objects.get("Plane")
+        obj = bpy.context.active_object
         obj.select_set(False)
 
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
@@ -560,6 +560,7 @@ class ParticleSystem:
         settings.render_type = "OBJECT"
         settings.count = particle_density * (frame_end - frame_start)
         settings.lifetime = max_distance * SCALE_Z * fps / velocity
+        settings.lifetime_random = 0.7
         settings.physics_type = "NEWTON"
         settings.time_tweak = 25 / fps
         settings.normal_factor = velocity
@@ -700,8 +701,6 @@ if __name__ == "__main__":
     bpy.data.objects["Cube"].hide_render = True
 
     for i, particle_system in enumerate(user_configuration.get("particle_systems", [])):
-        if i > 0:
-            raise NotImplementedError("Multiple particle systems not implemented yet.")
         frame_start = int(
             fps
             * movie_duration
