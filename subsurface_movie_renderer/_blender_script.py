@@ -536,6 +536,7 @@ class ParticleSystem:
         fps,
         frame_start,
         frame_end,
+        velocity,
         particle_density,
     ) -> None:
 
@@ -554,7 +555,6 @@ class ParticleSystem:
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
         particle_system = obj.particle_systems[0]
 
-        velocity = 1
         settings = particle_system.settings
         settings.particle_size = 0.002
         settings.render_type = "OBJECT"
@@ -707,7 +707,20 @@ if __name__ == "__main__":
             * (particle_system["start_time"] - time_axis[0])
             / (time_axis[-1] - time_axis[0])
         )
+        frame_stable = int(
+            fps
+            * movie_duration
+            * (particle_system["stable_time"] - time_axis[0])
+            / (time_axis[-1] - time_axis[0])
+        )
         frame_end = int(fps * movie_duration)
+        velocity = (
+            fps
+            * particle_system["max_distance"]
+            * SCALE_Z
+            / (frame_stable - frame_start)
+        )
+
         ParticleSystem(
             origin=origin,
             source_pos=particle_system["source_pos"],
@@ -715,6 +728,7 @@ if __name__ == "__main__":
             fps=fps,
             frame_start=frame_start,
             frame_end=frame_end,
+            velocity=velocity,
             particle_density=particle_system["particle_density"],
             max_distance=particle_system["max_distance"],
         )
