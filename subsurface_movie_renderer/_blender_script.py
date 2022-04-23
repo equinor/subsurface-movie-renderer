@@ -134,9 +134,12 @@ class BoundaryBox:
         update_alpha(t, self._alpha, self._new_object.data.materials)
 
 
-def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
-    for well in wells:
-        with open(well["trajectory"]) as csvfile:
+class Well:
+    def __init__(self, name, trajectory_csv, color, alpha):
+
+        self._alpha = alpha
+
+        with open(trajectory_csv) as csvfile:
             coordinates = [
                 (
                     (float(row[0]) - origin[0]) * SCALE_X,
@@ -146,9 +149,9 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
                 for row in csv.reader(csvfile)
             ]
 
-        object_name = "well_" + well["name"]
-        curve_name = "well_path_" + well["name"]
-        material_name = "well_mat_" + well["name"]
+        object_name = "well_" + name
+        curve_name = "well_path_" + name
+        material_name = "well_mat_" + name
 
         curvedata = bpy.data.curves.new(name=curve_name, type="CURVE")
         curvedata.dimensions = "3D"
@@ -165,12 +168,19 @@ def _add_wells(origin: Tuple[int, int, int], wells: List[dict]) -> None:
 
         bpy.context.view_layer.objects.active = bpy.data.objects[object_name]
 
-        well_mat = bpy.data.materials.new(material_name)
-        well_mat.diffuse_color = well["color"] + [well.get("alpha", 1.0)]
+        self._well_mat = bpy.data.materials.new(material_name)
+        self._well_mat.use_nodes = True
+        self._well_mat.blend_method = "HASHED"
+        inputs = self._well_mat.node_tree.nodes["Principled BSDF"].inputs
+        inputs["Alpha"].default_value = 1.0
+        inputs["Base Color"].default_value = color + [1.0]
 
         bpy.data.objects[object_name].data.bevel_depth = 1e-2
         bpy.data.objects[object_name].data.fill_mode = "FULL"
-        bpy.data.objects[object_name].data.materials.append(well_mat)
+        bpy.data.objects[object_name].data.materials.append(self._well_mat)
+
+    def update_alpha(self, t):
+        update_alpha(t, self._alpha, [self._well_mat])
 
 
 ###################################
@@ -538,6 +548,7 @@ class ParticleSystem:
         frame_end,
         velocity,
         particle_density,
+        lifetime_random,
     ) -> None:
 
         location = (
@@ -555,12 +566,22 @@ class ParticleSystem:
         obj.modifiers.new("particles", type="PARTICLE_SYSTEM")
         particle_system = obj.particle_systems[0]
 
+        emitter_material = bpy.data.materials.new("text")
+        emitter_material.use_nodes = True
+        emitter_material.blend_method = "HASHED"
+
+        inputs = emitter_material.node_tree.nodes["Principled BSDF"].inputs
+        inputs["Alpha"].default_value = 0.0
+        inputs["Base Color"].default_value = [0, 0, 0, 0]
+
+        obj.data.materials.append(emitter_material)
+
         settings = particle_system.settings
         settings.particle_size = 0.002
         settings.render_type = "OBJECT"
         settings.count = particle_density * (frame_end - frame_start)
         settings.lifetime = max_distance * SCALE_Z * fps / velocity
-        settings.lifetime_random = 0.7
+        settings.lifetime_random = lifetime_random
         settings.physics_type = "NEWTON"
         settings.time_tweak = 25 / fps
         settings.normal_factor = velocity
@@ -587,6 +608,7 @@ def _render_frames(
     boundary_boxes: List[BoundaryBox],
     td_horizons: List[TimeDependentHorizon],
     text_annotations,
+    wells,
 ) -> None:
 
     scene_key = bpy.data.scenes.keys()[0]
@@ -599,6 +621,8 @@ def _render_frames(
     bpy.context.scene.view_settings.view_transform = "Standard"
 
     camera = bpy.data.objects["Camera"]
+
+    bpy.context.scene.camera.data.clip_end = 300.0
 
     if static_horizons is not None:
         for static_horizon in static_horizons:
@@ -621,6 +645,9 @@ def _render_frames(
 
             for text_annotation in text_annotations:
                 text_annotation.update_alpha(t)
+
+            for well in wells:
+                well.update_alpha(t)
 
             x *= SCALE_X  # type: ignore[operator]
             y *= SCALE_Y  # type: ignore[operator]
@@ -660,7 +687,17 @@ if __name__ == "__main__":
     SCALE_Z *= user_configuration["coordinate_system"]["vertical_exaggeration"]
 
     _set_world_parameters()
-    _add_wells(origin, user_configuration["wells"])
+
+    wells = [
+        Well(
+            name=well["name"],
+            trajectory_csv=well["trajectory"],
+            color=well["color"],
+            alpha=well.get("alpha", 1.0),
+        )
+        for well in user_configuration["wells"]
+    ]
+
     text_annotations = _add_text_annotations(user_configuration["text_annotations"])
 
     boundary_boxes = []
@@ -731,6 +768,7 @@ if __name__ == "__main__":
             velocity=velocity,
             particle_density=particle_system["particle_density"],
             max_distance=particle_system["max_distance"],
+            lifetime_random=particle_system["lifetime_random"],
         )
 
     _render_frames(
@@ -742,4 +780,5 @@ if __name__ == "__main__":
         td_horizons=td_horizons,
         boundary_boxes=boundary_boxes,
         text_annotations=text_annotations,
+        wells=wells,
     )
