@@ -8,8 +8,9 @@ from typing import List, Tuple
 import tqdm
 import requests
 import numpy as np
-from ._layer_image import add_layer
 from scipy.interpolate import UnivariateSpline, interp1d
+from ._layer_image import add_layer
+
 
 from ._estimate_arrival_times import estimate_arrival_times
 
@@ -90,7 +91,6 @@ def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
             json.dumps(create_colormap_json("viridis"))
         )
 
-               
         with subprocess.Popen(
             [
                 "blender",
@@ -110,8 +110,8 @@ def render_movie(output_path: pathlib.Path, configuration: dict) -> None:
                     for line in process.stdout:
                         if line.startswith(b"Saved: 'image"):
                             pbar.update()
-        add_layer(configuration,tmp_dir_path)
-        
+        add_layer(configuration, tmp_dir_path)
+
         flags = [
             "ffmpeg",
             "-y",
