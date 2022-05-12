@@ -547,6 +547,7 @@ class ParticleSystem:
         frame_start,
         frame_end,
         velocity,
+        velocity_random,
         particle_density,
         lifetime_random,
     ) -> None:
@@ -585,6 +586,7 @@ class ParticleSystem:
         settings.physics_type = "NEWTON"
         settings.time_tweak = 25 / fps
         settings.normal_factor = velocity
+        settings.factor_random = velocity_random
         settings.frame_start = frame_start
         settings.frame_end = frame_end
         settings.instance_object = bpy.data.objects["Cube"]
@@ -618,6 +620,9 @@ def _render_frames(
 
     bpy.context.scene.render.resolution_x = width
     bpy.context.scene.render.resolution_y = height
+    bpy.context.scene.render.image_settings.compression = 0
+    bpy.context.scene.render.image_settings.quality = 100
+
     bpy.context.scene.view_settings.view_transform = "Standard"
 
     camera = bpy.data.objects["Camera"]
@@ -766,9 +771,10 @@ if __name__ == "__main__":
             frame_start=frame_start,
             frame_end=frame_end,
             velocity=velocity,
+            velocity_random=particle_system.get("velocity_random", 0.0),
             particle_density=particle_system["particle_density"],
             max_distance=particle_system["max_distance"],
-            lifetime_random=particle_system["lifetime_random"],
+            lifetime_random=particle_system.get("lifetime_random", 0.0),
         )
 
     _render_frames(
