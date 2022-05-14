@@ -210,7 +210,7 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
     ###############################################################################################
     #               Open and load production data
 
-    prod_df = pd.read_excel(data_file)
+    prodDF = pd.read_excel(data_file)
 
     # We fill up or Trim the Data Frame if the start date of the camera is earlier or later than the records
     if years_to_timestamp([str(years_camera[0])])[0]<prodDF['PROD_DAY'].iloc[0]:
@@ -239,11 +239,11 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
 
     # We create a vector that contains the points in time we will plot
     # according to the number of frames
-    total_len = len(prod_df)  # Total number of data points
+    total_len = len(prodDF)  # Total number of data points
     date_index = np.linspace(0, total_len - 1, number_frames).astype(int)
     date_selection = []
     for i in date_index:
-        date_selection.append(prod_df["PROD_DAY"].iloc[i])
+        date_selection.append(prodDF["PROD_DAY"].iloc[i])
 
     # Define years to be plotted in the plot
 
