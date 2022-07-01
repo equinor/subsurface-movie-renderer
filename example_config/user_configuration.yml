@@ -3,8 +3,25 @@ coordinate_system:
   vertical_exaggeration: 10
   # All other distance vectors defined directly in the
   # configuration file is relative to this origin:
-  origin: [436137, 6470283, 0]  
+  origin: [436137.42, 6470282.86, 0]  
   
+alpha_settings: &alpha_settings # This is a user defined variable used only within the YAML file.
+  1997: 1.0
+  1999: 0.0
+  2020: 0.0
+  2022: 1.0
+
+alpha_settings_reservoir_boundary: &alpha_settings_reservoir_boundary # This is a user defined variable used only within the YAML file.
+  1997: 0.1
+  1999: 0.0
+  2020: 0.0
+  2022: 0.1
+
+alpha_settings_water_boundary: &alpha_settings_water_boundary # This is a user defined variable used only within the YAML file.
+  1997: 0.5
+  1999: 0.0
+  2020: 0.0
+  2022: 0.5
 
 visual_settings:
   # Resolution of final movie:
@@ -13,62 +30,203 @@ visual_settings:
     height: 1080
   # Font wanted for text annotations:
   font: https://eds-static.equinor.com/font/Equinor-Regular.woff
-  movie_duration: 1  # Duration of output movie in seconds
-  fps: 2  # Frames per second in output movie
+  font_regular: /project/SleipnerCO2/timelapse_movie_config/data/Equinor-Regular.otf
+  font_italic: /project/SleipnerCO2/timelapse_movie_config/data/Equinor-Italic.otf
+  movie_duration: 10  # Duration of output movie in seconds
+  fps: 30  # Frames per second in output movie
   camera_track_point: [2570, 1400, -920]  # Location in 3D which camera should point to (relative to origin)
-  # The path parametrized as {t: [x, y, z]} which the camera should traverse through the movie
+
+  # The path parametrized as {t: [x, y, z]} which the camera should traverse through the movie.
+  # Time is in format YYYY-MM-DD, and x-y-z are assumed to be relative to origin. 
   camera_path:
-    1993: [278, -44833, 5050]
-    1995: [147, -86609, -2051]
-    2000: [7963, 3936, -618]
-    2003: [2855, 9983, -616]
-    2006: [-8182, 1980, -619]
-    2013: [92872, -2550, -234]
-    2016: [92872, -2550, -234]
-    2022: [92872, -2550, -234]
+    1993: [0, -45000, 5000]
+    1995: [0, -100000, -1600]
+    2000: [-6000, 3000, -750]
+    2006: [1000 , 12000, -850]
+    2009: [11000, 1500, -900]
+    2012: [2000, -7000, -750]   
+    2015: [-6000, -1000, -700]
+    2020: [-6500, -700, -200]
+    2025: [-90000, 0, -1500]
   
   survey_years: [1999,2001,2002,2004,2006,2008,2010,2013,2016,2020] 
 
 wells:
   # Injection well:
-  - name: Well A
-    trajectory: ./data/well_a_trajectory.csv
+  - name: A16
+    trajectory: ./data/A16_trajectory.csv
     color: [0.0, 0, 0]
   # Production wells:
-  - name: Well B
-    trajectory: ./data/well_b_trajectory.csv
+  - name: A2
+    trajectory: ./data/A2_trajectory.csv
     color: [0.4, 0.4, 0.4]  # color specified as RGB, each component between 0 and 1.
-    alpha: 0.1  # transparency (0: fully transparent, 1: non-transparent)
-  - name: Well C
-    trajectory: ./data/well_c_trajectory.csv
+    alpha:
+      << : *alpha_settings
+  - name: A10
+    trajectory: ./data/A10_trajectory.csv
     color: [0.4, 0.4, 0.4]
-    alpha: 0.1
+    alpha:
+      << : *alpha_settings
+  - name: A15
+    trajectory: ./data/A15_trajectory.csv
+    color: [0.4, 0.4, 0.4]
+    alpha:
+      << : *alpha_settings
+  - name: A21
+    trajectory: ./data/A21_trajectory.csv
+    color: [0.4, 0.4, 0.4]
+    alpha:
+      << : *alpha_settings
+  - name: A24
+    trajectory: ./data/A24_trajectory.csv
+    color: [0.4, 0.4, 0.4]
+    alpha:
+      << : *alpha_settings
+  - name: A26
+    trajectory: ./data/A26_trajectory.csv
+    color: [0.4, 0.4, 0.4]
+    alpha:
+      << : *alpha_settings
 
-text_annotations:
-  - label: "800 - 1000 m: Some formation"
-    location: [-8900, -10010, -930]
+text_annotations: 
+  - label: "800 - 1000 m: Utsira Fm."
+    location: [-8900, -9461, -930]
     rotation: [90, 0, 0]
-  - label: "2300 - 2600 m: Some other formation"
-    location: [-8900, -10010, -2480]
+    alpha:
+      << : *alpha_settings
+  - label: "2300 - 2600 m: Ty Fm."
+    location: [-8900, -9461, -2480]
     rotation: [90, 0, 0]
+    alpha:
+      << : *alpha_settings
 
 boundary_boxes:
   - name: reservoir
-    xrange: [-10000, 10000]
-    yrange: [-10000, 10000]
+    xrange: [-10797, 13100]
+    yrange: [-9460, 9440]
     zrange: [-3000, -80]
     color: [0.3, 0.3, 0.3]
-    alpha: 0.1
+    alpha:
+      << : *alpha_settings_reservoir_boundary
   - name: water
-    xrange: [-10000, 10000]
-    yrange: [-10000, 10000]
+    xrange: [-10797, 13100]
+    yrange: [-9460, 9440]
     zrange: [-80, 0]
     color: [0.1, 0.1, 0.7]
-    alpha: 0.5
+    alpha:
+      << : *alpha_settings_water_boundary
 
-surveys: {}
-static_horizons: {}
-time_dependent_horizons: {}
+
+surveys:
+  99-94p01ful:
+    time: 1999-10-01  # Mid-survey time, YYYY-MM-DD
+    scaling: 17000
+  01-94p07ful:
+    time: 2001-10-01
+    scaling: 17000
+  04-94p07ful:
+    time: 2004-07-01
+    scaling: 17000
+  06-94p07ful:
+    time: 2006-06-10
+    scaling: 17000
+  08-94p08ful:
+    time: 2008-06-01
+    scaling: 17000
+  10-94p10ful:
+    time: 2010-10-16
+    scaling: 17000
+  12-94p13ful:
+    time: 2013-01-15
+    scaling: 17000
+  16-94p17ful:
+    time: 2016-08-12
+    scaling: 1
+  20-94p20ful:
+    time: 2020-06-10
+    scaling: 1
+
+static_horizons:
+  Ty:
+    X: ./data/X_coordinates_top_ty.npy
+    Y: ./data/Y_coordinates_top_ty.npy
+    Z: ./data/top_ty_depth.npy
+    alpha: 1.0
+  Utsira:
+    X: ./data/X_coordinates_top_utsira_large.npy
+    Y: ./data/Y_coordinates_top_utsira_large.npy
+    Z: ./data/top_utsira_large_depth_smoothed.npy
+    alpha:
+      << : *alpha_settings
+
+time_dependent_horizons:
+  UTSCO2_010:
+    start_time: 1996-07-01
+    depth: 1000
+    data_folder: ./data/regularized_lowres
+  UTSCO2_020:
+    start_time: 1996-10-01
+    depth: 980
+    data_folder: ./data/regularized_lowres
+  UTSCO2_030:
+    start_time: 1997-01-01
+    depth: 960
+    data_folder: ./data/regularized_lowres
+  UTSCO2_040:
+    start_time: 1997-04-01
+    depth: 940
+    data_folder: ./data/regularized_lowres
+  UTSCO2_050:
+    start_time: 1997-10-01
+    depth: 920
+    data_folder: ./data/regularized_lowres
+  UTSCO2_060:
+    start_time: 1998-02-01
+    depth: 900
+    data_folder: ./data/regularized_lowres
+  UTSCO2_070:
+    start_time: 1998-07-01
+    depth: 880
+    data_folder: ./data/regularized_lowres
+  UTSCO2_080:
+    start_time: 1999-01-01
+    depth: 860
+    data_folder: ./data/regularized_lowres
+  UTSCO2_090:
+    start_time: 1999-05-01
+    depth: 840
+    data_folder: ./data/regularized_lowres
+
+particle_systems:
+  - source_pos: [438357, 6471219, -1080]  # From well to layer 1
+    particle_density: 90
+    source_diameter: 30
+    max_distance: 85
+    start_time: 1996.3
+    stable_time: 1997.0
+    velocity_random: 0.05
+  - source_pos: [438463, 6471153, -1000]  # Main chimney (layer 1 - 9)
+    particle_density: 60
+    source_diameter: 80
+    max_distance: 165
+    start_time: 1997.0
+    stable_time: 1999.2
+    lifetime_random: 0.3
+  - source_pos: [438995, 6472015, -920]  # NE chimney (layer 5-6)
+    particle_density: 3
+    source_diameter: 30
+    max_distance: 20
+    start_time: 1998.0
+    stable_time: 1999.0
+    lifetime_random: 0.0
+  - source_pos: [438170, 6470235, -880]  # SW chimney (layer 7-9)
+    particle_density: 3
+    source_diameter: 30
+    max_distance: 40
+    start_time: 2004
+    stable_time: 2007.5
+    lifetime_random: 0.3
+
 production_data:
-  file: /private/omah/Documents/CLCS/Slepiner_Movie/Data/Mass_CO2_Cum.xlsx
-  logo: /private/omah/Documents/CLCS/Slepiner_Movie/Data/logo_equinor.png
+  file: /project/SleipnerCO2/timelapse_movie_config/data/Mass_CO2_Cum.xlsx
+  logo: /project/SleipnerCO2/timelapse_movie_config/data/logo_equinor.png

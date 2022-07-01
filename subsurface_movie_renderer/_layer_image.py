@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 from matplotlib.dates import DateFormatter
 from tqdm import tqdm
-
+import shutil
 
 ###############################################################################
 #     Define extra functions
@@ -31,7 +31,6 @@ def millify(n: float) -> str:
     )
 
     return f"{n / 10 ** (3 * millidx):.1f}{millnames[millidx]}"
-
 
 # Functions to Plot
 def create_plot(prodDF, first_date_index, last_date_index, end, index_to_plot=[], plot_size=(10,5),ticks_axis='X', font=None):
@@ -124,7 +123,7 @@ def create_plot(prodDF, first_date_index, last_date_index, end, index_to_plot=[]
 
     return fig, ax
 
-
+# Add a point to mark the survey year
 def add_anchor_points(prodDF,end, fig, ax, fps, index_to_plot, animation_flag):
     duration=int(fps*0.25)*2
 
@@ -177,7 +176,6 @@ def fig2img(fig: matplotlib.figure.Figure, dpi: int = 100) -> Image.Image:
     img = Image.open(buf)
     return img
 
-
 # Converts years to a pandas date
 def years_to_timestamp(years_to_plot: list) -> list:
     years_timestamped = []
@@ -200,11 +198,12 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
     years_camera = list(configuration["visual_settings"]["camera_path"].keys())
     data_file = configuration["production_data"]["file"]
     logo_file = configuration["production_data"]["logo"]
-    font_ttf = configuration["visual_settings"]["font_ttf"]
+    font_regular = configuration["visual_settings"]["font_regular"]
+    font_italic = configuration["visual_settings"]["font_italic"]
     years_to_plot = configuration["visual_settings"]["survey_years"]
     # Set the number of frames we have according to the movie duration
     number_frames = fps * movie_duration
-    prop = font_manager.FontProperties(fname=font_ttf)
+    prop = font_manager.FontProperties(fname=font_regular)
 
 
     ###############################################################################################
@@ -276,7 +275,7 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
             logo_s = logo.resize(newsize)
             draw = ImageDraw.Draw(canvas)
             # specified font size
-            font = ImageFont.truetype(font_ttf, 50)
+            font = ImageFont.truetype(font_regular, 50)
             text = "SLEIPNER"
             draw.text(
                 (50, 50),
@@ -287,10 +286,10 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
                 stroke_width=1,
                 stroke_fill="black",
             )
-            font = ImageFont.truetype(font_ttf, 40)
+            font = ImageFont.truetype(font_regular, 40)
             text = "CO  injection"
             draw.text((90, 95), text, font=font, fill="black", align="left")
-            font = ImageFont.truetype(font_ttf, 20)
+            font = ImageFont.truetype(font_regular, 20)
             text = "2"
             draw.text((147, 115), text, font=font, fill="black", align="left")
             fig, ax = create_plot(prodDF, first_date_index, last_date_index, end, index_to_plot, plot_size=(width/(100*3), height/(100*4)),ticks_axis='X', font=prop)
@@ -306,3 +305,47 @@ def add_layer(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
             images.append(canvas)
             canvas.save(image_path, "PNG")
             pbar.update()
+
+def extend_video(configuration: dict, tmp_dir_path: pathlib.Path) -> None:
+
+    # Load parameters from YAML file
+    fps = configuration["visual_settings"]["fps"]
+    movie_duration = configuration["visual_settings"]["movie_duration"]
+    width = configuration["visual_settings"]["resolution"]["width"]
+    height = configuration["visual_settings"]["resolution"]["height"]
+    font_regular = configuration["visual_settings"]["font_regular"]
+    font_italic = configuration["visual_settings"]["font_italic"]
+    # Set the number of frames we have according to the movie duration
+    number_frames = fps * movie_duration
+
+    file_path_name_last = "image" + (6 - len(str(number_frames-1))) * "0" + str(number_frames-1) + ".png"
+    image_path = tmp_dir_path / file_path_name_last
+
+    #Copy last frame to extend with a label
+    file_path_name_last_label = "image" + (6 - len(str(number_frames))) * "0" + str(number_frames) + ".png"
+    labeled_image_path = tmp_dir_path / file_path_name_last_label
+    shutil.copy(image_path,labeled_image_path)
+
+    canvas = Image.open(labeled_image_path)
+    draw = ImageDraw.Draw(canvas)
+
+    # specified font size
+    font_i = ImageFont.truetype(font_italic, 35)
+
+    text = "Thank you for the Sleipner license partners \n for allowing us to share this movie"
+    draw.text(
+        (width/3, 60),
+        text,
+        font=font_i,
+        fill="black",
+        align="center",
+    ) 
+    canvas.save(labeled_image_path, "PNG")
+
+    add_frames=10*fps
+    i_file_name=np.arange(1,add_frames)+number_frames
+    for i in i_file_name:
+        #Copy last frame to extend with a label
+        file_path_name_add_label = "image" + (6 - len(str(i))) * "0" + str(i) + ".png"
+        labeled_image_add_path = tmp_dir_path / file_path_name_add_label
+        shutil.copy(labeled_image_path,labeled_image_add_path)
