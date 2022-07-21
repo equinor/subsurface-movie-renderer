@@ -16,4 +16,4 @@ min-public-methods = 1
 good-names = i, j, k, fh, x, y, z, t, dx, dy, S, M, N, X, Y, P, C, DELTA_T, N_v,
              S1, S2, S12, gamma_L, gamma_U, new_LB, new_UB, partial_S1, partial_S2, dl,
              Nx, Ny, Z, AT, d, I, A, D_t, A, m, n, b, w, D_x, D_y, D_xx, D_yy,
-             lamb_T, lamb_S, _X, _Y, _Z, _AT
+             lamb_T, lamb_S, _X, _Y, _Z, _AT, ax

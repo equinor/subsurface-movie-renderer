@@ -1,4 +1,6 @@
 # Output
+.vscode
+.tmp*
 3D-movie.avi
 *.blend
 
